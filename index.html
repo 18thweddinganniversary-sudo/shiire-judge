@@ -22,7 +22,7 @@
 
     // v9.14 が最終ページへ既存パッチを注入する箇所に、v9.15判定エンジンも追加する。
     const needle="h=h.replace('</body>',patch+'</body>');";
-    const replacement="h=h.replace('</body>',patch+'<script src=\\\"/v9_17_patch.js?v=918\\\"></scr'+'ipt></body>');";
+    const replacement="h=h.replace('</body>',patch+'<script src=\\\"/v9_17_patch.js?v=920\\\"></scr'+'ipt></body>');";
     if(h.includes(needle)){
       h=h.replace(needle,replacement);
     }else{
