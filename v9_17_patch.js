@@ -585,7 +585,22 @@ setTimeout(stabilizeUI, 50);
 setTimeout(stabilizeUI, 500);
 setTimeout(stabilizeUI, 1500);
 
-window.V920 = {
+window.V920 = {/* 一覧カードと詳細判定を必ず一致させる */
+if (typeof window.render === 'function') {
+  const originalRenderV920 = window.render;
+
+  window.render = function (...args) {
+    try {
+      if (Array.isArray(window.items)) {
+        window.items.forEach(x => applyDecision(x));
+      }
+    } catch (e) {
+      console.warn('v9.20 render sync', e);
+    }
+
+    return originalRenderV920.apply(this, args);
+  };
+}
   config: CFG,
   greenGate,
   shelfMatch,
