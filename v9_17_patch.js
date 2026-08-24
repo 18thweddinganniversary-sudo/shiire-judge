@@ -607,11 +607,6 @@ if (typeof window.render === 'function') {
     return originalRenderV920.apply(this, args);
   };
 }
-  config: CFG,
-  greenGate,
-  shelfMatch,
-  stabilizeUI
-};
 
 console.log(
   '仕入れ判断 v9.20 patch loaded'
