@@ -585,7 +585,13 @@ setTimeout(stabilizeUI, 50);
 setTimeout(stabilizeUI, 500);
 setTimeout(stabilizeUI, 1500);
 
-window.V920 = {/* 一覧カードと詳細判定を必ず一致させる */
+window.V920 = {
+  config: CFG,
+  greenGate,
+  shelfMatch,
+  stabilizeUI
+};
+  /* 一覧カードと詳細判定を必ず一致させる */
 if (typeof window.render === 'function') {
   const originalRenderV920 = window.render;
 
