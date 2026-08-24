@@ -471,7 +471,7 @@ if (
           }
 
           window.save?.();
-
+window.render?.();
         }
 
       } catch (e) {
