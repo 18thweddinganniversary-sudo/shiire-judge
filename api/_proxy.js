@@ -22,3 +22,4 @@ module.exports = async function proxy(req, res, route) {
     res.end(JSON.stringify({error:'upstream_proxy_failed'}));
   }
 };
+// redeploy
