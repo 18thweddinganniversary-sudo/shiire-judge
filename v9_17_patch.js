@@ -362,7 +362,7 @@ if (
           String(args[0] || '');
 
         const x =
-          window.items?.find(v => {
+          items?.find(v => {
 
             const a =
               String(v.jan || '');
@@ -597,8 +597,8 @@ if (typeof window.render === 'function') {
 
   window.render = function (...args) {
     try {
-      if (Array.isArray(window.items)) {
-        window.items.forEach(x => applyDecision(x));
+      if (Array.isArray(items)) {
+        items.forEach(x => applyDecision(x));
       }
     } catch (e) {
       console.warn('v9.20 render sync', e);
