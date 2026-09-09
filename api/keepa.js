@@ -1,8 +1,11 @@
+const { parseProduct } = require('../keepa-core');
+const { validJan } = require('../jan-ocr-core');
+
 module.exports = async (req, res) => {
   try {
     const jan = String(req.query.jan || '').replace(/\D/g, '');
 
-    if (!jan) {
+    if (!validJan(jan)) {
       return res.status(400).json({ error: 'JANコードが不正です' });
     }
 
@@ -21,7 +24,9 @@ module.exports = async (req, res) => {
       '&domain=5' +
       '&code=' + encodeURIComponent(jan) +
       '&history=0' +
-      '&stats=90';
+      '&stats=90' +
+      '&update=1' +
+      '&offers=20';
 
     const r = await fetch(url, {
       headers: { 'Accept-Encoding': 'gzip' },
@@ -38,57 +43,21 @@ module.exports = async (req, res) => {
       });
     }
 
-    const p = Array.isArray(data.products) ? data.products[0] : null;
+    const products = Array.isArray(data.products) ? data.products : [];
+    const matches = products.filter((product) => ['eanList', 'upcList', 'gtinList']
+      .flatMap((field) => Array.isArray(product?.[field]) ? product[field] : [])
+      .map((code) => String(code).replace(/\D/g, ''))
+      .includes(jan));
+    const p = matches.length === 1 ? matches[0] : null;
 
     if (!p) {
       return res.status(200).json({
         configured: true,
         found: false,
+        reason: matches.length > 1 ? 'ambiguous_product_code' : 'product_code_mismatch',
         jan,
         tokensLeft: data.tokensLeft ?? null
       });
-    }
-
-    const stats = p.stats || {};
-    const cur = Array.isArray(stats.current) ? stats.current : [];
-    const avg90 = Array.isArray(stats.avg90) ? stats.avg90 : [];
-
-    const valid = v =>
-      v !== null && v !== undefined && v !== '' &&
-      Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null;
-
-    const newPrice = valid(cur[1]);
-    const buyBox = valid(cur[18]);
-    const avg90New = valid(avg90[1]);
-    const salesRank = valid(cur[3]);
-
-    const newOfferCount = valid(cur[11]);
-
-    const amazonPrice = valid(cur[0]);
-    const amazonPresent = amazonPrice !== null && amazonPrice > 0;
-
-    let fbaFee = null;
-    if (p.fbaFees) {
-      fbaFee =
-        valid(p.fbaFees.pickAndPackFee) ??
-        valid(p.fbaFees.pickAndPackFeeTax) ??
-        null;
-    }
-
-    const referralFeePercentage =
-      valid(p.referralFeePercentage);
-
-    let signal = '🔴';
-    let label = '見送り';
-
-    if (
-      newPrice &&
-      avg90New &&
-      !amazonPresent &&
-      (newOfferCount === null || newOfferCount <= 15)
-    ) {
-      signal = '🟢';
-      label = '仕入れ候補';
     }
 
     return res.status(200).json({
@@ -96,31 +65,7 @@ module.exports = async (req, res) => {
       found: true,
       jan,
       tokensLeft: data.tokensLeft ?? null,
-      product: {
-        asin: p.asin || null,
-        title: p.title || '',
-        brand: p.brand || '',
-        monthlySold:
-          p.monthlySold !== null && p.monthlySold !== undefined &&
-          Number.isFinite(Number(p.monthlySold))
-            ? Number(p.monthlySold)
-            : null,
-        salesRankDrops30:
-          Number.isFinite(Number(stats.salesRankDrops30))
-            ? Number(stats.salesRankDrops30)
-            : null,
-        salesRank,
-        newPrice,
-        buyBox,
-        avg90New,
-        newOfferCount,
-        amazonPresent,
-        fbaFee,
-        referralFeePercentage,
-        variableClosingFee: valid(p.variableClosingFee),
-        signal,
-        label
-      }
+      product: parseProduct(p)
     });
   } catch (e) {
     return res.status(500).json({

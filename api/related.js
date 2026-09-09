@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
     if (!upstream.ok) return res.status(upstream.status).json(data);
     const hits = (Array.isArray(data.hits) ? data.hits : []).map(hit => {
       const jan = String(hit.janCode || hit.jan_code || hit.productId || '').replace(/\D/g, '');
-      return { jan, name: hit.name || '', brand: hit.brand?.name || hit.brand || brand, image: hit.image?.medium || hit.image?.small || '' };
+      return { jan, name: hit.name || '', brand: hit.brand?.name || hit.brand || '', image: hit.image?.medium || hit.image?.small || '' };
     });
     const candidates = selectSameShelf(root, hits, 10);
     return res.status(200).json({ brand, candidates });

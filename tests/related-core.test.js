@@ -26,11 +26,11 @@ test('same-shelf selection keeps consoles separate from games and controllers', 
 });
 
 test('food selection rejects a different food type and a mismatched pack count', () => {
-  const root = { jan: '4900000000001', brand: 'Example', name: 'Example ドリップコーヒー 10袋入り' };
+  const root = { jan: '4900000000001', brand: 'Example', name: 'Example ドリップコーヒー 8g×10袋入り' };
   const hits = [
-    { jan: '4900000000002', brand: 'Example', name: 'Example ドリップコーヒー 10袋入り 深煎り' },
-    { jan: '4900000000003', brand: 'Example', name: 'Example ドリップコーヒー 20袋入り' },
-    { jan: '4900000000004', brand: 'Example', name: 'Example チョコ 10袋入り' },
+    { jan: '4900000000002', brand: 'Example', name: 'Example ドリップコーヒー 8g×10袋入り 深煎り' },
+    { jan: '4900000000003', brand: 'Example', name: 'Example ドリップコーヒー 8g×20袋入り' },
+    { jan: '4900000000004', brand: 'Example', name: 'Example チョコ 8g×10袋入り' },
   ];
 
   assert.deepEqual(related.selectSameShelf(root, hits).map((item) => item.jan), ['4900000000002']);
@@ -40,5 +40,47 @@ test('unknown product types return no candidates instead of brand-wide noise', (
   const root = { jan: '4900000000011', brand: 'Example', name: 'Example 商品 ABC-100' };
   const hits = [{ jan: '4900000000012', brand: 'Example', name: 'Example 別商品 XYZ-200' }];
 
+  assert.deepEqual(related.selectSameShelf(root, hits), []);
+});
+
+test('beverage packaging parses capacity and multi-stage totals', () => {
+  assert.deepEqual(related.parsePackaging('缶コーヒー 185ml×30本×3箱'), {
+    unitCapacityMl: 185,
+    unitWeightG: null,
+    totalUnits: 90,
+    outerCount: 3,
+  });
+  assert.equal(related.parsePackaging('コーヒー 2箱 計60缶').totalUnits, 60);
+  assert.equal(related.parsePackaging('コーヒー 30本×3箱').totalUnits, 90);
+  assert.equal(related.parsePackaging('コーヒー 3ケース').outerCount, 3);
+});
+
+test('same shelf excludes 30, 60, 90 and different capacity beverage packs', () => {
+  const root = { jan: '4900000000101', brand: 'Example', name: 'Example 缶コーヒー 185ml×30本' };
+  const hits = [
+    { jan: '4900000000102', brand: 'Example', name: 'Example 缶コーヒー 185ml×30本 微糖' },
+    { jan: '4900000000103', brand: 'Example', name: 'Example 缶コーヒー 185ml 2箱 計60缶' },
+    { jan: '4900000000104', brand: 'Example', name: 'Example 缶コーヒー 185ml×30本×3箱' },
+    { jan: '4900000000105', brand: 'Example', name: 'Example 缶コーヒー 250ml×30本' },
+    { jan: '4900000000106', brand: 'Other', name: 'Other 缶コーヒー 185ml×30本' },
+    { jan: '4900000000107', brand: '', name: '缶コーヒー 185ml×30本' },
+  ];
+  assert.deepEqual(related.selectSameShelf(root, hits).map((item) => item.jan), ['4900000000102']);
+});
+
+test('food candidates with ambiguous pack identity are excluded', () => {
+  const root = { jan: '4900000000201', brand: 'Example', name: 'Example コーヒー 3ケース' };
+  const hits = [{ jan: '4900000000202', brand: 'Example', name: 'Example コーヒー 3ケース' }];
+  assert.deepEqual(related.selectSameShelf(root, hits), []);
+});
+
+test('every stage in a multi-pack expression contributes to total units', () => {
+  assert.equal(related.parsePackaging('飲料 6本×5パック×3箱').totalUnits, 90);
+  assert.equal(related.parsePackaging('飲料 6本×3箱').totalUnits, 18);
+});
+
+test('food with matching counts but no capacity or weight is excluded', () => {
+  const root = { jan: '4900000000301', brand: 'Example', name: 'Example コーヒー 10袋' };
+  const hits = [{ jan: '4900000000302', brand: 'Example', name: 'Example コーヒー 10袋' }];
   assert.deepEqual(related.selectSameShelf(root, hits), []);
 });

@@ -10,18 +10,40 @@ test('production page is self-contained and does not load old deployments', () =
   assert.doesNotMatch(html, /-[a-z0-9]+-shiire-judge\.vercel\.app/);
   assert.doesNotMatch(html, /document\.write/);
   assert.match(html, /decision-engine\.js/);
+  assert.match(html, /app-core\.js/);
   assert.match(html, /jan-ocr-core\.js/);
   assert.match(html, /app\.js/);
 });
 
 test('all local browser assets referenced by index exist', () => {
-  for (const file of ['styles.css', 'decision-engine.js', 'jan-ocr-core.js', 'app.js']) {
+  for (const file of ['styles.css', 'decision-engine.js', 'jan-ocr-core.js', 'app-core.js', 'app.js']) {
     assert.equal(fs.existsSync(path.join(root, file)), true, `${file} is missing`);
   }
+});
+
+test('production labels and files expose only the current decision source', () => {
+  const api = fs.readFileSync(path.join(root, 'api', 'keepa.js'), 'utf8');
+  assert.doesNotMatch(html, /🟢安全目安/);
+  assert.match(html, /利益条件上の仕入上限/);
+  assert.doesNotMatch(api, /signal\s*=|label\s*=/);
+  assert.equal(fs.existsSync(path.join(root, 'v9_17_patch.js')), false);
 });
 
 test('camera startup cannot leave the app stuck on the loading state', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.match(app, /CAMERA_TIMEOUT_MS/);
   assert.match(app, /Promise\.race/);
+  assert.match(app, /cameraGeneration/);
+});
+
+test('HTML, cache keys, decision engine and README use one release version', () => {
+  const decision = fs.readFileSync(path.join(root, 'decision-engine.js'), 'utf8');
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.match(html, /仕入れ判断 v9\.40/);
+  assert.match(html, /\?v=9400/);
+  assert.doesNotMatch(html, /\?v=(?!9400)\d+/);
+  assert.match(decision, /version: '9\.40'/);
+  assert.match(readme, /仕入れ判断 v9\.40/);
+  assert.equal(packageJson.version, '9.40.0');
 });
