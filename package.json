@@ -1,0 +1,9 @@
+{
+  "name": "shiire-judge",
+  "private": true,
+  "version": "9.38.0",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check app.js && node --check decision-engine.js && node --check jan-ocr-core.js && node --check api/product.js && node --check api/keepa.js && node --check api/related.js && node --check api/_proxy.js"
+  }
+}

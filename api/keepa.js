@@ -54,6 +54,7 @@ module.exports = async (req, res) => {
     const avg90 = Array.isArray(stats.avg90) ? stats.avg90 : [];
 
     const valid = v =>
+      v !== null && v !== undefined && v !== '' &&
       Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null;
 
     const newPrice = valid(cur[1]);
@@ -100,6 +101,7 @@ module.exports = async (req, res) => {
         title: p.title || '',
         brand: p.brand || '',
         monthlySold:
+          p.monthlySold !== null && p.monthlySold !== undefined &&
           Number.isFinite(Number(p.monthlySold))
             ? Number(p.monthlySold)
             : null,
@@ -115,6 +117,7 @@ module.exports = async (req, res) => {
         amazonPresent,
         fbaFee,
         referralFeePercentage,
+        variableClosingFee: valid(p.variableClosingFee),
         signal,
         label
       }
