@@ -1,0 +1,22 @@
+.near-item {
+  display: block;
+  width: 100%;
+  min-height: auto;
+  padding: 10px 2px;
+  border-radius: 0;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  font-size: 11px;
+}
+
+.near-item b,
+.near-item span {
+  display: block;
+}
+
+.near-item span {
+  color: var(--green);
+  margin-top: 4px;
+}

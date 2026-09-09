@@ -6,7 +6,7 @@
   'use strict';
 
   const CONFIG = Object.freeze({
-    version: '9.38',
+    version: '9.39',
     minProfit: 500,
     minMargin: 20,
     minRoi: 20,
