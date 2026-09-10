@@ -27,6 +27,7 @@ test('production labels and files expose only the current decision source', () =
   assert.match(html, /利益条件上の仕入上限/);
   assert.doesNotMatch(api, /signal\s*=|label\s*=/);
   assert.equal(fs.existsSync(path.join(root, 'v9_17_patch.js')), false);
+  assert.equal(fs.existsSync(path.join(root, 'api', '_proxy.js')), false);
 });
 
 test('camera startup cannot leave the app stuck on the loading state', () => {
