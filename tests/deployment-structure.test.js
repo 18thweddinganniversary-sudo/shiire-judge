@@ -36,6 +36,12 @@ test('camera startup cannot leave the app stuck on the loading state', () => {
   assert.match(app, /cameraGeneration/);
 });
 
+test('Keepa completion replaces the loading status', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.match(app, /判定データを更新しました/);
+  assert.match(app, /Keepaデータを更新できませんでした/);
+});
+
 test('HTML, cache keys, decision engine and README use one release version', () => {
   const decision = fs.readFileSync(path.join(root, 'decision-engine.js'), 'utf8');
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
