@@ -184,7 +184,7 @@
     };
   }
 
-  function gateReasons(item, decision, now = Date.now(), overrides = {}) {
+  function gateReasons(item, decision, now = Date.now(), overrides = {}, costValue = null) {
     const keepa = item?.keepa || {};
     const reasons = [];
     if (!keepa.asin) reasons.push('ASIN未確定');
@@ -212,7 +212,9 @@
     reasons.push(...freshnessIssues(item, now));
     const safeGuide = canonicalSafeGuide(item, overrides);
     if (!safeGuide) reasons.push('利益条件上限算出不可');
-    if (!decision) reasons.push('仕入れ価格未入力');
+    if (!decision) {
+      if (!positive(costValue)) reasons.push('仕入れ価格未入力');
+    }
     else {
       if (safeGuide && decision.cost > safeGuide.safe) reasons.push('利益条件上限超過');
       if (decision.profit < CONFIG.minProfit) reasons.push('利益不足');
@@ -224,7 +226,7 @@
 
   function evaluate(item, costValue, overrides = {}) {
     const decision = calculateDecision(item, costValue, overrides);
-    const reasons = gateReasons(item, decision, overrides.now || Date.now(), overrides);
+    const reasons = gateReasons(item, decision, overrides.now || Date.now(), overrides, costValue);
     const green = reasons.length === 0;
     return {
       signal: green ? '🟢' : '🔴',

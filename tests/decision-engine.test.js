@@ -142,6 +142,7 @@ test('missing closing fee or stale product data cannot become green', () => {
   } });
   assert.ok(engine.evaluate(missingClosing, 2_000).reasons.includes('実手数料不足'));
   assert.equal(engine.evaluate(missingClosing, 2_000).signal, '🔴');
+  assert.equal(engine.evaluate(missingClosing, 2_000).reasons.includes('仕入れ価格未入力'), false);
   assert.ok(engine.evaluate(staleProduct, 2_000, { now }).reasons.includes('商品データ鮮度不足'));
 });
 
