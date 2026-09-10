@@ -146,6 +146,21 @@ test('missing closing fee or stale product data cannot become green', () => {
   assert.ok(engine.evaluate(staleProduct, 2_000, { now }).reasons.includes('商品データ鮮度不足'));
 });
 
+test('missing closing fee is zero only for an explicitly non-applicable category', () => {
+  const nonApplicable = safeItem({ keepa: {
+    variableClosingFee: null,
+    variableClosingFeeApplicable: false,
+  } });
+  const applicable = safeItem({ keepa: {
+    variableClosingFee: null,
+    variableClosingFeeApplicable: true,
+  } });
+  assert.equal(engine.calculateDecision(nonApplicable, 2_000).fees, 1_000);
+  assert.equal(engine.evaluate(nonApplicable, 2_000).signal, '🟢');
+  assert.equal(engine.calculateDecision(applicable, 2_000), null);
+  assert.ok(engine.evaluate(applicable, 2_000).reasons.includes('実手数料不足'));
+});
+
 test('stale monthlySold falls back to fresh sales-rank drops', () => {
   const now = 2_000_000_000_000;
   const keepa = {

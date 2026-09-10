@@ -20,12 +20,28 @@ function keepaTime(input) {
   return minutes === null ? null : KEEPA_EPOCH_MS + minutes * 60_000;
 }
 
-function feeTotal(fees) {
-  if (!fees) return null;
+function parseFbaFee(fees) {
+  if (!fees) return { total: null, status: 'not_collected', components: null };
+  // Keepa exposes storage fees separately, but they are time-based inventory costs,
+  // not the per-order fulfillment fee used by this decision calculation.
   const base = positive(fees.pickAndPackFee);
   const tax = value(fees.pickAndPackFeeTax);
-  if (base === null || tax === null) return null;
-  return base + tax;
+  const components = { pickAndPackFee: base, pickAndPackFeeTax: tax };
+  if (base === null) return { total: null, status: 'invalid_dimensions', components };
+  if (tax === null) return { total: null, status: 'tax_unavailable', components };
+  return { total: base + tax, status: 'available', components };
+}
+
+function closingFeeApplicability(product) {
+  const categoryPath = Array.isArray(product?.categoryTree)
+    ? product.categoryTree.map((entry) => String(entry?.name || '').trim()).filter(Boolean)
+    : [];
+  if (!categoryPath.length) return { applicable: null, categoryPath };
+  const categories = categoryPath.join(' ').normalize('NFKC').toLowerCase();
+  // Amazon.co.jp charges a category closing fee only in its listed media/game
+  // categories. Unknown category data stays unknown; it is never assumed free.
+  const applicable = /(本|書籍|book|ミュージック|音楽|music|cd|レコード|vinyl|dvd|blu.?ray|ビデオ|video|vhs|pcソフト|software|ゲーム|game|console|switch|playstation|xbox)/i.test(categories);
+  return { applicable, categoryPath };
 }
 
 function parseProduct(product) {
@@ -35,6 +51,8 @@ function parseProduct(product) {
   const rawMonthlySold = value(product?.monthlySold);
   const monthlySold = rawMonthlySold === 0 && !positive(product?.lastSoldUpdate) ? null : rawMonthlySold;
   const amazonPrice = positive(current[CSV.AMAZON]);
+  const fbaFee = parseFbaFee(product?.fbaFees);
+  const closingFee = closingFeeApplicability(product);
 
   return {
     asin: product?.asin || null,
@@ -49,13 +67,17 @@ function parseProduct(product) {
     newOfferCount: value(current[CSV.COUNT_NEW]),
     offersSuccessful: product?.offersSuccessful === true,
     amazonPresent: amazonPrice !== null || stats.buyBoxIsAmazon === true,
-    fbaFee: feeTotal(product?.fbaFees),
+    fbaFee: fbaFee.total,
+    fbaFeeStatus: fbaFee.status,
+    fbaFeeComponents: fbaFee.components,
     referralFeePercentage: positive(product?.referralFeePercentage),
     variableClosingFee: value(product?.variableClosingFee),
+    variableClosingFeeApplicable: closingFee.applicable,
+    categoryPath: closingFee.categoryPath,
     productUpdatedAt: keepaTime(product?.lastUpdate),
     offersUpdatedAt: keepaTime(stats.lastOffersUpdate),
     monthlySoldUpdatedAt: keepaTime(product?.lastSoldUpdate),
   };
 }
 
-module.exports = { CSV, value, positive, keepaTime, parseProduct };
+module.exports = { CSV, value, positive, keepaTime, parseFbaFee, closingFeeApplicability, parseProduct };

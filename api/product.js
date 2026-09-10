@@ -10,11 +10,11 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'YAHOO_APP_ID_missing' });
     }
 
-    const url =
-      'https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch' +
-      '?appid=' + encodeURIComponent(appid) +
-      '&jan_code=' + encodeURIComponent(jan) +
-      '&image_size=300&results=100';
+    const url = new URL('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch');
+    url.searchParams.set('appid', appid);
+    url.searchParams.set('jan_code', jan);
+    url.searchParams.set('image_size', '300');
+    url.searchParams.set('results', '100');
 
     const r = await fetch(url, { cache: 'no-store' });
     const data = await r.json();

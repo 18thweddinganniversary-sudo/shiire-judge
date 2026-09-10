@@ -60,6 +60,7 @@
     const source = String(raw || '');
     const safeCaret = Math.max(0, Math.min(source.length, Number(caret) || 0));
     const digitsBefore = source.slice(0, safeCaret).replace(/\D/g, '').length;
+    const afterSeparator = safeCaret > 0 && /\D/.test(source[safeCaret - 1]);
     const digits = source.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
     if (!digits) return { text: '', caret: 0, value: null };
     const value = Number(digits);
@@ -73,6 +74,9 @@
         if (/\d/.test(text[index])) seen += 1;
         if (seen === digitsBefore) {
           nextCaret = index + 1;
+          if (afterSeparator) {
+            while (nextCaret < text.length && /\D/.test(text[nextCaret])) nextCaret += 1;
+          }
           break;
         }
       }

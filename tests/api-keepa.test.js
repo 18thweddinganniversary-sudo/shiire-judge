@@ -53,6 +53,9 @@ test('Keepa API requests fresh live offers and returns raw parsed data only', as
   assert.equal(url.searchParams.get('offers'), '20');
   assert.equal(url.searchParams.has('only-live-offers'), false);
   assert.equal(body.product.salesRankDrops30, 12);
+  assert.equal(body.product.fbaFee, 990);
+  assert.equal(body.product.fbaFeeStatus, 'available');
+  assert.deepEqual(body.product.fbaFeeComponents, { pickAndPackFee: 900, pickAndPackFeeTax: 90 });
   assert.equal('signal' in body.product, false);
   assert.equal('label' in body.product, false);
 });

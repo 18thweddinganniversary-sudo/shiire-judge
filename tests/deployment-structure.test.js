@@ -43,14 +43,21 @@ test('Keepa completion replaces the loading status', () => {
   assert.match(app, /Keepaデータを更新できませんでした/);
 });
 
+test('server APIs build upstream requests with the WHATWG URL API', () => {
+  for (const file of ['product.js', 'keepa.js', 'related.js']) {
+    const source = fs.readFileSync(path.join(root, 'api', file), 'utf8');
+    assert.match(source, /new URL\(/, `${file} must use WHATWG URL`);
+  }
+});
+
 test('HTML, cache keys, decision engine and README use one release version', () => {
   const decision = fs.readFileSync(path.join(root, 'decision-engine.js'), 'utf8');
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.match(html, /仕入れ判断 v9\.40/);
-  assert.match(html, /\?v=9400/);
-  assert.doesNotMatch(html, /\?v=(?!9400)\d+/);
-  assert.match(decision, /version: '9\.40'/);
-  assert.match(readme, /仕入れ判断 v9\.40/);
-  assert.equal(packageJson.version, '9.40.0');
+  assert.match(html, /仕入れ判断 v9\.41/);
+  assert.match(html, /\?v=9410/);
+  assert.doesNotMatch(html, /\?v=(?!9410)\d+/);
+  assert.match(decision, /version: '9\.41'/);
+  assert.match(readme, /仕入れ判断 v9\.41/);
+  assert.equal(packageJson.version, '9.41.0');
 });

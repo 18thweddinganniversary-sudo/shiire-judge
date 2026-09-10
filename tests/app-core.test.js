@@ -48,6 +48,9 @@ test('money formatting preserves digits and a meaningful caret through edits', (
   assert.deepEqual(app.formatMoneyInput('3000', 4), { text: '3,000', caret: 5, value: 3000 });
   assert.deepEqual(app.formatMoneyInput('10000', 5), { text: '10,000', caret: 6, value: 10000 });
   assert.deepEqual(app.formatMoneyInput('3,000', 1), { text: '3,000', caret: 1, value: 3000 });
+  assert.deepEqual(app.formatMoneyInput('3,000', 2), { text: '3,000', caret: 2, value: 3000 });
+  assert.deepEqual(app.formatMoneyInput('10,000', 3), { text: '10,000', caret: 3, value: 10000 });
+  assert.deepEqual(app.formatMoneyInput('30,00', 2), { text: '3,000', caret: 3, value: 3000 });
 });
 
 test('stored items survive normalization with price and Keepa timestamp intact', () => {
@@ -56,4 +59,20 @@ test('stored items survive normalization with price and Keepa timestamp intact',
   assert.equal(item.cost, 3000);
   assert.equal(item.keepaFetchedAt, 123);
   assert.equal(item.keepa.asin, 'B012345678');
+});
+
+test('storage recovery tolerates broken JSON and caps history at 30 entries', () => {
+  assert.deepEqual(app.loadItems('{broken json'), []);
+  assert.deepEqual(app.loadItems('{"items":[]}'), []);
+  const items = Array.from({ length: 35 }, (_, index) => ({
+    jan: String(4900000000000 + index),
+    name: `item-${index}`,
+    cost: index + 1,
+    keepaFetchedAt: 2_000_000_000_000 + index,
+    keepa: { asin: `B${String(index).padStart(9, '0')}` },
+  }));
+  const loaded = app.loadItems(JSON.stringify(items));
+  assert.equal(loaded.length, 30);
+  assert.equal(loaded[0].name, 'item-0');
+  assert.equal(loaded[29].name, 'item-29');
 });

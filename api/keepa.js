@@ -18,15 +18,14 @@ module.exports = async (req, res) => {
       });
     }
 
-    const url =
-      'https://api.keepa.com/product' +
-      '?key=' + encodeURIComponent(key) +
-      '&domain=5' +
-      '&code=' + encodeURIComponent(jan) +
-      '&history=0' +
-      '&stats=90' +
-      '&update=1' +
-      '&offers=20';
+    const url = new URL('https://api.keepa.com/product');
+    url.searchParams.set('key', key);
+    url.searchParams.set('domain', '5');
+    url.searchParams.set('code', jan);
+    url.searchParams.set('history', '0');
+    url.searchParams.set('stats', '90');
+    url.searchParams.set('update', '1');
+    url.searchParams.set('offers', '20');
 
     const r = await fetch(url, {
       headers: { 'Accept-Encoding': 'gzip' },

@@ -6,7 +6,7 @@
   'use strict';
 
   const CONFIG = Object.freeze({
-    version: '9.40',
+    version: '9.41',
     minProfit: 500,
     minMargin: 20,
     minRoi: 20,
@@ -104,12 +104,18 @@
     return Math.max(apiRate, conservativeRate);
   }
 
+  function closingFee(keepa) {
+    const fee = number(keepa?.variableClosingFee);
+    if (fee !== null && fee >= 0) return fee;
+    return keepa?.variableClosingFeeApplicable === false ? 0 : null;
+  }
+
   function safeLimitAtSale(item, salePrice, overrides = {}) {
     if (!item || unitRisk(item)) return null;
     const sale = positive(salePrice);
     const fba = number(overrides.fbaFee ?? item.keepa?.fbaFee);
     const rate = positive(overrides.referralRate) || referralRate(item, sale);
-    const closing = number(item.keepa?.variableClosingFee);
+    const closing = closingFee(item.keepa);
     const other = Math.max(0, number(overrides.otherCost) || 0);
     if (!sale || fba === null || fba < 0 || closing === null || closing < 0 || !rate) return null;
     const fees = Math.round(sale * rate / 100) + fba + closing + other;
@@ -170,7 +176,7 @@
     const fba = number(overrides.fbaFee ?? item?.keepa?.fbaFee);
     const rate = positive(overrides.referralRate) || referralRate(item, sale);
     const other = Math.max(0, number(overrides.otherCost) || 0);
-    const closing = number(item?.keepa?.variableClosingFee);
+    const closing = closingFee(item?.keepa);
     if (!cost || !sale || fba === null || fba < 0 || closing === null || closing < 0 || !rate) return null;
     const fees = Math.round(sale * rate / 100) + fba + closing + other;
     const profit = Math.round(sale - fees - cost);
@@ -192,7 +198,7 @@
     if (!positive(keepa.newPrice)) reasons.push('現在価格不足');
     if (!positive(keepa.avg90New)) reasons.push('90日価格不足');
     if (number(keepa.fbaFee) === null || number(keepa.fbaFee) < 0
-      || number(keepa.variableClosingFee) === null || number(keepa.variableClosingFee) < 0
+      || closingFee(keepa) === null
       || !positive(keepa.referralFeePercentage)) reasons.push('実手数料不足');
     if (keepa.amazonPresent) reasons.push('Amazon本体在庫あり');
     const offers = number(keepa.newOfferCount);
@@ -237,5 +243,5 @@
     };
   }
 
-  return { CONFIG, packCount, unitRisk, referralRate, safeLimitAtSale, canonicalSafeGuide, demandEvidence, demandLevel, freshnessIssues, calculateDecision, gateReasons, evaluate };
+  return { CONFIG, packCount, unitRisk, referralRate, closingFee, safeLimitAtSale, canonicalSafeGuide, demandEvidence, demandLevel, freshnessIssues, calculateDecision, gateReasons, evaluate };
 });
