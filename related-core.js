@@ -1,9 +1,9 @@
 'use strict';
 
 const TYPES = [
+  ['game_console', /(?:nintendo\s*)?switch.*(?:本体|lite|有機el)|(?:本体|lite|有機el).*(?:switch|スイッチ)/i, 'ゲーム機本体'],
   ['game_controller', /joy[\s-]?con|コントローラ|プロコン/i, 'ゲーム周辺機器'],
   ['game_software', /ゲームソフト|ソフト\s|\sソフト|hac-p|bee-p|edition|リズム天国|マリオカート|ルイージマンション/i, 'ゲームソフト'],
-  ['game_console', /(?:nintendo\s*)?switch.*(?:本体|lite|有機el)|(?:本体|lite|有機el).*(?:switch|スイッチ)/i, 'ゲーム機本体'],
   ['coffee_machine', /コーヒーメーカー|コーヒーマシン/i, 'コーヒーメーカー'],
   ['toaster', /トースター/i, 'トースター'],
   ['recorder', /レコーダー|diga|ディーガ/i, 'レコーダー'],

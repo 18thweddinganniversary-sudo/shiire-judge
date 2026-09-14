@@ -25,6 +25,21 @@ test('same-shelf selection keeps consoles separate from games and controllers', 
   assert.deepEqual(related.selectSameShelf(root, hits).map((item) => item.jan), ['4902370548495']);
 });
 
+test('a console bundle name containing Joy-Con is still classified as a console', () => {
+  const root = {
+    jan: '4902370542912',
+    brand: '任天堂',
+    name: 'Nintendo Switch 本体 (ニンテンドースイッチ) Joy-Con(L) ネオンブルー/(R) ネオンレッド',
+  };
+  const hits = [
+    { jan: '4902370552843', brand: '任天堂', name: '任天堂 Nintendo Switch 2 Proコントローラー BEE-A-FSSKA 1個' },
+    { jan: '4902370535723', brand: '任天堂', name: '任天堂 Nintendo Switch専用 Joy-Con充電グリップ' },
+    { jan: '4902370548495', brand: '任天堂', name: 'Nintendo Switch 有機EL 本体 ホワイト' },
+  ];
+  assert.equal(related.productType(root.name), 'game_console');
+  assert.deepEqual(related.selectSameShelf(root, hits).map((item) => item.jan), ['4902370548495']);
+});
+
 test('food selection rejects a different food type and a mismatched pack count', () => {
   const root = { jan: '4900000000001', brand: 'Example', name: 'Example ドリップコーヒー 8g×10袋入り' };
   const hits = [
