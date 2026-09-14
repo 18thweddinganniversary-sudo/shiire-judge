@@ -72,6 +72,25 @@ test('missing FBA tax remains unavailable instead of being coerced to zero', () 
   assert.deepEqual(parsed.fbaFeeComponents, { pickAndPackFee: 900, pickAndPackFeeTax: null });
 });
 
+test('Amazon Japan uses the published tax-inclusive pick-and-pack fee when tax field is absent', () => {
+  const parsed = keepa.parseProduct(product({
+    domainId: 5,
+    fbaFees: { pickAndPackFee: 472 },
+  }));
+  assert.equal(parsed.fbaFee, 472);
+  assert.equal(parsed.fbaFeeStatus, 'available_tax_inclusive');
+  assert.deepEqual(parsed.fbaFeeComponents, { pickAndPackFee: 472, pickAndPackFeeTax: null });
+});
+
+test('Amazon Japan never adds a separate tax field to its tax-inclusive pick-and-pack fee', () => {
+  const parsed = keepa.parseProduct(product({
+    domainId: 5,
+    fbaFees: { pickAndPackFee: 472, pickAndPackFeeTax: 47 },
+  }));
+  assert.equal(parsed.fbaFee, 472);
+  assert.equal(parsed.fbaFeeStatus, 'available_tax_inclusive');
+});
+
 test('missing Keepa FBA object is distinguishable from a parser failure', () => {
   const parsed = keepa.parseProduct(product({ fbaFees: null }));
   assert.equal(parsed.fbaFee, null);

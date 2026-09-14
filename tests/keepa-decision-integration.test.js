@@ -62,6 +62,20 @@ test('FBA tax omission is not silently treated as zero', () => {
   assert.ok(result.reasons.includes('実手数料不足'));
 });
 
+test('a complete Amazon Japan response can produce green with its tax-inclusive FBA fee', () => {
+  const now = 2_000_000_000_000;
+  const raw = rawProduct(now, {
+    domainId: 5,
+    fbaFees: { pickAndPackFee: 440 },
+  });
+  const parsed = keepaCore.parseProduct(raw);
+  const result = evaluateRaw(raw, now);
+  assert.equal(parsed.fbaFee, 440);
+  assert.equal(parsed.fbaFeeStatus, 'available_tax_inclusive');
+  assert.equal(result.signal, '🟢');
+  assert.equal(result.decision.fees, 1_040);
+});
+
 test('media closing fee must be provided while a supplied fee is included', () => {
   const now = 2_000_000_000_000;
   const media = rawProduct(now, {

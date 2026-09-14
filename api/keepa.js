@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
       found: true,
       jan,
       tokensLeft: data.tokensLeft ?? null,
-      product: parseProduct(p)
+      product: parseProduct(p, 5)
     });
   } catch (e) {
     if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {

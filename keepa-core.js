@@ -20,7 +20,7 @@ function keepaTime(input) {
   return minutes === null ? null : KEEPA_EPOCH_MS + minutes * 60_000;
 }
 
-function parseFbaFee(fees) {
+function parseFbaFee(fees, domainId = null) {
   if (!fees) return { total: null, status: 'not_collected', components: null };
   // Keepa exposes storage fees separately, but they are time-based inventory costs,
   // not the per-order fulfillment fee used by this decision calculation.
@@ -28,6 +28,10 @@ function parseFbaFee(fees) {
   const tax = value(fees.pickAndPackFeeTax);
   const components = { pickAndPackFee: base, pickAndPackFeeTax: tax };
   if (base === null) return { total: null, status: 'invalid_dimensions', components };
+  // Amazon.co.jp publishes FBA fulfillment fees as tax-inclusive amounts.
+  // Keepa's JP pickAndPackFee therefore is the complete per-order fee; the
+  // optional tax component must neither be required nor added a second time.
+  if (Number(domainId) === 5) return { total: base, status: 'available_tax_inclusive', components };
   if (tax === null) return { total: null, status: 'tax_unavailable', components };
   return { total: base + tax, status: 'available', components };
 }
@@ -44,14 +48,14 @@ function closingFeeApplicability(product) {
   return { applicable, categoryPath };
 }
 
-function parseProduct(product) {
+function parseProduct(product, domainId = product?.domainId) {
   const stats = product?.stats || {};
   const current = Array.isArray(stats.current) ? stats.current : [];
   const avg90 = Array.isArray(stats.avg90) ? stats.avg90 : [];
   const rawMonthlySold = value(product?.monthlySold);
   const monthlySold = rawMonthlySold === 0 && !positive(product?.lastSoldUpdate) ? null : rawMonthlySold;
   const amazonPrice = positive(current[CSV.AMAZON]);
-  const fbaFee = parseFbaFee(product?.fbaFees);
+  const fbaFee = parseFbaFee(product?.fbaFees, domainId);
   const closingFee = closingFeeApplicability(product);
 
   return {
