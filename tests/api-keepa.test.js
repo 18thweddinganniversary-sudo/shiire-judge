@@ -80,3 +80,23 @@ test('Keepa API rejects ambiguous or non-matching code results', async () => {
   assert.equal(body.found, false);
   assert.equal(body.reason, 'ambiguous_product_code');
 });
+
+test('Keepa API rejects a single product whose returned JAN does not match', async () => {
+  const originalFetch = global.fetch;
+  const originalKey = process.env.KEEPA_API_KEY;
+  process.env.KEEPA_API_KEY = 'test-key';
+  global.fetch = async () => ({ ok: true, json: async () => ({ products: [
+    { asin: 'B000000003', eanList: ['4900000000000'] },
+  ] }) });
+  let body;
+  const res = { status() { return this; }, json(value) { body = value; return value; } };
+  try {
+    await handler({ query: { jan: '4902370542912' } }, res);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.KEEPA_API_KEY;
+    else process.env.KEEPA_API_KEY = originalKey;
+  }
+  assert.equal(body.found, false);
+  assert.equal(body.reason, 'product_code_mismatch');
+});

@@ -44,9 +44,19 @@ test('green requires all data and profitability gates', () => {
   const item = safeItem();
   const result = engine.evaluate(item, 2_000);
   assert.equal(result.signal, '🟢');
+  assert.equal(result.label, 'GO（仕入れ）');
   assert.equal(result.decision.profit, 1_000);
   assert.equal(result.decision.margin, 25);
   assert.equal(result.decision.roi, 50);
+});
+
+test('missing evidence is judgement unavailable, while measured failure is a rejection', () => {
+  const missingFee = engine.evaluate(safeItem({ keepa: { fbaFee: null } }), 1_000);
+  const measuredLowDemand = engine.evaluate(safeItem({ keepa: { monthlySold: 0, salesRankDrops30: 0 } }), 1_000);
+  assert.equal(missingFee.signal, '🔴');
+  assert.equal(missingFee.label, '判定不能');
+  assert.equal(measuredLowDemand.signal, '🔴');
+  assert.equal(measuredLowDemand.label, '見送り');
 });
 
 test('list and detail use one canonical red result when ROI fails', () => {
@@ -215,4 +225,19 @@ test('cost above the 90-day-safe guide can never be green', () => {
   const result = engine.evaluate(item, 2_071);
   assert.equal(result.signal, '🔴');
   assert.ok(result.reasons.includes('利益条件上限超過'));
+});
+
+test('each commercial gate blocks green with its matching reason', () => {
+  const cases = [
+    [safeItem(), 2_600, '利益不足'],
+    [safeItem(), 2_300, '利益率不足'],
+    [safeItem(), 2_700, 'ROI不足'],
+    [safeItem({ keepa: { newOfferCount: 16 } }), 2_000, '出品者過多'],
+    [safeItem({ keepa: { newPrice: 2_800, avg90New: 4_000 } }), 1_000, '価格安定条件外'],
+  ];
+  for (const [item, cost, reason] of cases) {
+    const result = engine.evaluate(item, cost);
+    assert.equal(result.signal, '🔴', reason);
+    assert.ok(result.reasons.includes(reason), reason);
+  }
 });

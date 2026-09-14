@@ -96,5 +96,14 @@
     }
   }
 
-  return { MAX_AGE_MS, demandText, countText, moneyText, needsKeepaRefresh, refreshDisposition, formatMoneyInput, loadItems };
+  function createRequestGate() {
+    let active = 0;
+    return {
+      begin() { active += 1; return active; },
+      invalidate() { active += 1; },
+      isCurrent(requestId) { return requestId === active; },
+    };
+  }
+
+  return { MAX_AGE_MS, demandText, countText, moneyText, needsKeepaRefresh, refreshDisposition, formatMoneyInput, loadItems, createRequestGate };
 });

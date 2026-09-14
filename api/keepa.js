@@ -1,5 +1,6 @@
 const { parseProduct } = require('../keepa-core');
 const { validJan } = require('../jan-ocr-core');
+const UPSTREAM_TIMEOUT_MS = 15000;
 
 module.exports = async (req, res) => {
   try {
@@ -29,7 +30,8 @@ module.exports = async (req, res) => {
 
     const r = await fetch(url, {
       headers: { 'Accept-Encoding': 'gzip' },
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
     });
 
     const data = await r.json();
@@ -67,6 +69,9 @@ module.exports = async (req, res) => {
       product: parseProduct(p)
     });
   } catch (e) {
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
+      return res.status(504).json({ configured: true, error: 'keepa_api_timeout' });
+    }
     return res.status(500).json({
       configured: true,
       error: 'keepa_api_failed',

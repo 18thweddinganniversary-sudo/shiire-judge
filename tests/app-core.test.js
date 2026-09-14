@@ -76,3 +76,19 @@ test('storage recovery tolerates broken JSON and caps history at 30 entries', ()
   assert.equal(loaded[0].name, 'item-0');
   assert.equal(loaded[29].name, 'item-29');
 });
+
+test('a newer lookup invalidates late responses from an older lookup', () => {
+  const requests = app.createRequestGate();
+  const first = requests.begin();
+  assert.equal(requests.isCurrent(first), true);
+  const second = requests.begin();
+  assert.equal(requests.isCurrent(first), false);
+  assert.equal(requests.isCurrent(second), true);
+});
+
+test('explicit invalidation prevents a closed lookup from reopening later', () => {
+  const requests = app.createRequestGate();
+  const request = requests.begin();
+  requests.invalidate();
+  assert.equal(requests.isCurrent(request), false);
+});

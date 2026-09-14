@@ -1,3 +1,5 @@
+const UPSTREAM_TIMEOUT_MS = 15000;
+
 module.exports = async (req, res) => {
   try {
     const jan = String(req.query.jan || '').trim();
@@ -16,7 +18,10 @@ module.exports = async (req, res) => {
     url.searchParams.set('image_size', '300');
     url.searchParams.set('results', '100');
 
-    const r = await fetch(url, { cache: 'no-store' });
+    const r = await fetch(url, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
+    });
     const data = await r.json();
 
     if (!r.ok) {
@@ -53,6 +58,9 @@ module.exports = async (req, res) => {
       max: prices.length ? Math.max(...prices) : 0
     });
   } catch (err) {
+    if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+      return res.status(504).json({ error: 'product_api_timeout' });
+    }
     return res.status(500).json({
       error: 'product_api_failed',
       message: String(err?.message || err)

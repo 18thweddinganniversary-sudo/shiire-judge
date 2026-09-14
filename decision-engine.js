@@ -6,7 +6,7 @@
   'use strict';
 
   const CONFIG = Object.freeze({
-    version: '9.41',
+    version: '9.42',
     minProfit: 500,
     minMargin: 20,
     minRoi: 20,
@@ -234,9 +234,14 @@
     const decision = calculateDecision(item, costValue, overrides);
     const reasons = gateReasons(item, decision, overrides.now || Date.now(), overrides, costValue);
     const green = reasons.length === 0;
+    const measuredRejectReasons = new Set([
+      'Amazon本体在庫あり', '出品者過多', '回転不足', '価格安定条件外',
+      '利益条件上限超過', '利益不足', '利益率不足', 'ROI不足',
+    ]);
+    const measuredReject = reasons.some((reason) => measuredRejectReasons.has(reason));
     return {
       signal: green ? '🟢' : '🔴',
-      label: green ? '仕入れ候補' : '見送り',
+      label: green ? 'GO（仕入れ）' : measuredReject ? '見送り' : '判定不能',
       reasons,
       decision,
       guide: canonicalSafeGuide(item, overrides),

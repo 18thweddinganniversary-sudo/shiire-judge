@@ -1,4 +1,5 @@
 const { buildSearchQuery, selectSameShelf } = require('../related-core');
+const UPSTREAM_TIMEOUT_MS = 15000;
 
 module.exports = async (req, res) => {
   try {
@@ -14,7 +15,10 @@ module.exports = async (req, res) => {
     url.searchParams.set('query', buildSearchQuery(root) || brand);
     url.searchParams.set('results', '50');
     url.searchParams.set('image_size', '300');
-    const upstream = await fetch(url, { cache: 'no-store' });
+    const upstream = await fetch(url, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
+    });
     const data = await upstream.json();
     if (!upstream.ok) return res.status(upstream.status).json(data);
     const hits = (Array.isArray(data.hits) ? data.hits : []).map(hit => {
@@ -24,6 +28,9 @@ module.exports = async (req, res) => {
     const candidates = selectSameShelf(root, hits, 10);
     return res.status(200).json({ brand, candidates });
   } catch (error) {
+    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+      return res.status(504).json({ error: 'related_api_timeout' });
+    }
     return res.status(500).json({ error: 'related_api_failed', message: String(error?.message || error) });
   }
 };

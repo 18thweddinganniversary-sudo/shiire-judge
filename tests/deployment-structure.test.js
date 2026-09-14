@@ -37,6 +37,14 @@ test('camera startup cannot leave the app stuck on the loading state', () => {
   assert.match(app, /cameraGeneration/);
 });
 
+test('lookups ignore product and Keepa responses from superseded requests', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.match(app, /requests:A\.createRequestGate\(\)/);
+  assert.match(app, /const requestId=state\.requests\.begin\(\)/);
+  assert.match(app, /fetchKeepa\(jan,true,requestId\)/);
+  assert.match(app, /state\.requests\.isCurrent\(activeRequestId\)/);
+});
+
 test('Keepa completion replaces the loading status', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.match(app, /判定データを更新しました/);
@@ -54,10 +62,10 @@ test('HTML, cache keys, decision engine and README use one release version', () 
   const decision = fs.readFileSync(path.join(root, 'decision-engine.js'), 'utf8');
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.match(html, /仕入れ判断 v9\.41/);
-  assert.match(html, /\?v=9410/);
-  assert.doesNotMatch(html, /\?v=(?!9410)\d+/);
-  assert.match(decision, /version: '9\.41'/);
-  assert.match(readme, /仕入れ判断 v9\.41/);
-  assert.equal(packageJson.version, '9.41.0');
+  assert.match(html, /仕入れ判断 v9\.42/);
+  assert.match(html, /\?v=9420/);
+  assert.doesNotMatch(html, /\?v=(?!9420)\d+/);
+  assert.match(decision, /version: '9\.42'/);
+  assert.match(readme, /仕入れ判断 v9\.42/);
+  assert.equal(packageJson.version, '9.42.0');
 });
