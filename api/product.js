@@ -1,4 +1,11 @@
 const UPSTREAM_TIMEOUT_MS = 15000;
+const UNRELIABLE_LISTING = /中古|ジャンク|訳あり|本体のみ|箱なし|欠品|動作未確認/i;
+
+function usableNewListing(hit) {
+  const condition = String(hit?.condition || hit?.conditionType || '').toLowerCase();
+  return !/(used|中古|refurbished|ジャンク)/i.test(condition)
+    && !UNRELIABLE_LISTING.test(String(hit?.name || ''));
+}
 
 module.exports = async (req, res) => {
   try {
@@ -28,12 +35,14 @@ module.exports = async (req, res) => {
       return res.status(r.status).json(data);
     }
 
-    const hits = Array.isArray(data.hits) ? data.hits : [];
+    const allHits = Array.isArray(data.hits) ? data.hits : [];
+    const hits = allHits.filter(usableNewListing);
 
     if (!hits.length) {
       return res.status(200).json({
         found: false,
-        jan
+        jan,
+        reason: allHits.length ? 'only_used_or_incomplete_listings' : 'not_found'
       });
     }
 
@@ -52,7 +61,7 @@ module.exports = async (req, res) => {
       name: first.name || '',
       brand: first.brand?.name || first.brand || '',
       image: first.image?.medium || first.image?.small || '',
-      count: Number(data.totalResultsAvailable || hits.length),
+      count: hits.length,
       avg,
       min: prices.length ? Math.min(...prices) : 0,
       max: prices.length ? Math.max(...prices) : 0
