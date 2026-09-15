@@ -41,7 +41,7 @@ test('lookups ignore product and Keepa responses from superseded requests', () =
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.match(app, /requests:A\.createRequestGate\(\)/);
   assert.match(app, /const requestId=state\.requests\.begin\(\)/);
-  assert.match(app, /fetchKeepa\(jan,true,requestId\)/);
+  assert.match(app, /fetchKeepa\(jan,false,requestId\)/);
   assert.match(app, /state\.requests\.isCurrent\(activeRequestId\)/);
 });
 
