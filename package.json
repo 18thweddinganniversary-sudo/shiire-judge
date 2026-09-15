@@ -1,7 +1,7 @@
 {
   "name": "shiire-judge",
   "private": true,
-  "version": "9.42.0",
+  "version": "9.43.0",
   "scripts": {
     "preflight": "node scripts/preflight.js",
     "test:unit": "node --test tests/*.test.js",
