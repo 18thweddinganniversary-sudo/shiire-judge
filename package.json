@@ -3,7 +3,11 @@
   "private": true,
   "version": "9.42.0",
   "scripts": {
-    "test": "node --test tests/*.test.js",
-    "check": "node --check app.js && node --check app-core.js && node --check decision-engine.js && node --check jan-ocr-core.js && node --check keepa-core.js && node --check related-core.js && node --check api/product.js && node --check api/keepa.js && node --check api/related.js"
+    "preflight": "node scripts/preflight.js",
+    "test:unit": "node --test tests/*.test.js",
+    "test": "npm run preflight && npm run test:unit",
+    "check:syntax": "node --check app.js && node --check app-core.js && node --check decision-engine.js && node --check jan-ocr-core.js && node --check keepa-core.js && node --check related-core.js && node --check api/product.js && node --check api/keepa.js && node --check api/related.js && node --check scripts/preflight.js",
+    "check": "npm run preflight && npm run check:syntax",
+    "verify": "npm run preflight && npm run check:syntax && npm run test:unit"
   }
 }
