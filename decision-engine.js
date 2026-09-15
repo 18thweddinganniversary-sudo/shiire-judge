@@ -6,7 +6,7 @@
   'use strict';
 
   const CONFIG = Object.freeze({
-    version: '9.42',
+    version: '9.43',
     minProfit: 500,
     minMargin: 20,
     minRoi: 20,
@@ -17,236 +17,106 @@
     maxPriceTo90d: 1.15,
   });
 
-  function number(value) {
-    if (value === null || value === undefined || value === '') return null;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
+  function num(v) { return typeof v === 'number' && Number.isFinite(v) ? v : null; }
+  function pct(v) { return Math.round(v * 10) / 10; }
+  function yen(v) { return Math.floor(v); }
+  function feeTotal(k, salePrice) {
+    const fba = num(k?.fbaFee), referral = num(k?.referralFeePercent), closing = num(k?.variableClosingFee), other = num(k?.otherFee) ?? 0;
+    if (fba === null || referral === null || closing === null) return null;
+    return fba + salePrice * referral / 100 + closing + other;
   }
-
-  function positive(value) {
-    const parsed = number(value);
-    return parsed !== null && parsed > 0 ? parsed : null;
+  function profitAt(k, salePrice, cost) {
+    const fees = feeTotal(k, salePrice);
+    if (fees === null) return null;
+    const profit = salePrice - fees - cost;
+    return { salePrice, fees: yen(fees), profit: yen(profit), margin: pct(profit / salePrice * 100), roi: pct(profit / cost * 100) };
   }
-
-  function text(value) {
-    return String(value ?? '').normalize('NFKC').toLowerCase();
+  function safeAt(k, salePrice) {
+    const fees = feeTotal(k, salePrice);
+    if (fees === null) return null;
+    const net = salePrice - fees;
+    const byProfit = net - CONFIG.minProfit;
+    const byMargin = net - salePrice * CONFIG.minMargin / 100;
+    const byRoi = net / (1 + CONFIG.minRoi / 100);
+    return Math.floor(Math.min(byProfit, byMargin, byRoi));
   }
-
-  function packaging(value) {
-    const source = text(value);
-    const capacity = source.match(/(\d+(?:\.\d+)?)\s*(ml|l|g|kg)\b/i);
-    const capacityValue = Number(capacity?.[1]);
-    const capacityUnit = capacity?.[2]?.toLowerCase();
-    const tokens = [...source.matchAll(/(\d{1,4})\s*(本|缶|個|袋|枚|パック|点|箱|ケース|セット)(?!\s*(?:あたり|当たり))/gi)]
-      .map((match) => ({ count: Number(match[1]), unit: match[2] }))
-      .filter(({ count }) => count >= 1 && count <= 1000);
-    const baseTokens = tokens.filter(({ unit }) => /^(?:本|缶|個|袋|枚|パック|点)$/.test(unit));
-    const explicit = source.match(/計\s*(\d{1,4})\s*(?:本|缶|個|袋|枚|パック|点)/i);
-    const outer = tokens.filter(({ unit }) => /^(?:箱|ケース|セット)$/.test(unit));
-    let totalUnits = Number(explicit?.[1]) || null;
-    if (!totalUnits && baseTokens.length) {
-      totalUnits = /[×x]/i.test(source)
-        ? tokens.reduce((total, token) => total * token.count, 1)
-        : baseTokens[0].count * (outer.length ? outer.reduce((total, token) => total * token.count, 1) : 1);
-    }
-    return {
-      totalUnits: totalUnits && totalUnits <= 10000 ? totalUnits : null,
-      unitCapacityMl: capacityUnit === 'ml' ? capacityValue : capacityUnit === 'l' ? capacityValue * 1000 : null,
-      unitWeightG: capacityUnit === 'g' ? capacityValue : capacityUnit === 'kg' ? capacityValue * 1000 : null,
-    };
-  }
-
-  function packCount(value) {
-    return packaging(value).totalUnits;
-  }
-
-  function unitRisk(item) {
-    if (!item?.keepa) return null;
-    const shopPack = packaging(item.name);
-    const amazonPack = packaging(item.keepa.title);
-    const shopCount = shopPack.totalUnits;
-    const amazonCount = amazonPack.totalUnits;
-    if ((shopCount !== null || amazonCount !== null) && shopCount !== amazonCount) {
-      return `商品名の入数が一致しません（店頭側 ${shopCount} / Amazon側 ${amazonCount}）`;
-    }
-    for (const field of ['unitCapacityMl', 'unitWeightG']) {
-      if ((shopPack[field] !== null || amazonPack[field] !== null) && shopPack[field] !== amazonPack[field]) {
-        return '商品名の容量・重量が一致しません';
-      }
-    }
-    if (isFood(item) && (shopCount === null || amazonCount === null
-      || (shopPack.unitCapacityMl === null && shopPack.unitWeightG === null)
-      || (amazonPack.unitCapacityMl === null && amazonPack.unitWeightG === null))) {
-      return '食品・飲料の容量または入数を確認できません';
-    }
-    const amazonPrice = positive(item.keepa.newPrice) || positive(item.keepa.avg90New);
-    const shopPrice = positive(item.avg);
-    if (amazonPrice && shopPrice) {
-      const ratio = amazonPrice / shopPrice;
-      if (ratio < 0.35 || ratio > 2.5) return '他市場との価格差が大きく、商品単位・ASIN違いの可能性があります';
-    }
+  function demandLevel(k) {
+    if (!k) return null;
+    const monthlyFresh = k.monthlySoldFresh !== false;
+    const monthly = monthlyFresh ? num(k.monthlySold) : null;
+    if (monthly !== null) return monthly >= 20 ? 3 : monthly >= 8 ? 2 : monthly > 0 ? 1 : 0;
+    const drops = num(k.salesRankDrops30);
+    if (drops !== null) return drops >= 20 ? 3 : drops >= 8 ? 2 : drops > 0 ? 1 : 0;
     return null;
   }
-
-  function isFood(item) {
-    const source = text(`${item?.name || ''} ${item?.keepa?.title || ''}`);
-    return /(コーヒー|珈琲|ネスカフェ|スターバックス|マヨネーズ|食品|飲料|お茶|茶葉|紅茶|緑茶|ジュース|菓子|キャンディ|チョコ|スナック|調味料|ソース|ドレッシング|レトルト|即席|インスタント)/i.test(source)
-      && !/(メーカー|マシン|コーヒーメーカー|ドリッパー|タンブラー|カップ|家電)/i.test(source);
+  function timestampFresh(ts, now = Date.now()) {
+    const n = num(ts);
+    return n !== null && n <= now && now - n <= CONFIG.maxDataAgeMs;
   }
-
-  function referralRate(item, salePrice) {
-    const apiRate = positive(item?.keepa?.referralFeePercentage);
-    if (!apiRate) return null;
-    if (!isFood(item)) return apiRate;
-    const price = positive(salePrice);
-    if (!price) return apiRate;
-    const conservativeRate = price <= 750 ? 5 : price <= 1500 ? 8.4 : 10.4;
-    return Math.max(apiRate, conservativeRate);
-  }
-
-  function closingFee(keepa) {
-    const fee = number(keepa?.variableClosingFee);
-    if (fee !== null && fee >= 0) return fee;
-    return keepa?.variableClosingFeeApplicable === false ? 0 : null;
-  }
-
-  function safeLimitAtSale(item, salePrice, overrides = {}) {
-    if (!item || unitRisk(item)) return null;
-    const sale = positive(salePrice);
-    const fba = number(overrides.fbaFee ?? item.keepa?.fbaFee);
-    const rate = positive(overrides.referralRate) || referralRate(item, sale);
-    const closing = closingFee(item.keepa);
-    const other = Math.max(0, number(overrides.otherCost) || 0);
-    if (!sale || fba === null || fba < 0 || closing === null || closing < 0 || !rate) return null;
-    const fees = Math.round(sale * rate / 100) + fba + closing + other;
-    const beforeCost = sale - fees;
-    const limits = [
-      beforeCost - CONFIG.minProfit,
-      sale * (1 - CONFIG.minMargin / 100) - fees,
-      beforeCost / (1 + CONFIG.minRoi / 100),
-    ];
-    const limit = Math.floor(Math.min(...limits));
-    return limit > 0 ? limit : null;
-  }
-
-  function canonicalSafeGuide(item, overrides = {}) {
-    if (!item || unitRisk(item)) return null;
-    const current = positive(item.keepa?.newPrice);
-    const average = positive(item.keepa?.avg90New);
-    if (!current || !average) return null;
-    const currentSafe = safeLimitAtSale(item, current, overrides);
-    const ninetySafe = safeLimitAtSale(item, average, overrides);
-    if (!currentSafe || !ninetySafe) return null;
-    return { safe: Math.min(currentSafe, ninetySafe), currentSafe, ninetySafe };
-  }
-
-  function timestampFresh(value, now = Date.now()) {
-    const timestamp = number(value);
-    return timestamp !== null && timestamp <= now + 60_000 && now - timestamp <= CONFIG.maxDataAgeMs;
-  }
-
   function freshnessIssues(item, now = Date.now()) {
-    const keepa = item?.keepa;
-    const reasons = [];
-    if (!timestampFresh(item?.keepaFetchedAt, now)) reasons.push('データ鮮度不足');
-    if (keepa && !timestampFresh(keepa.productUpdatedAt, now)) reasons.push('商品データ鮮度不足');
-    if (keepa && number(keepa.newOfferCount) !== null
-      && (keepa.offersSuccessful !== true || !timestampFresh(keepa.offersUpdatedAt, now))) reasons.push('出品者データ鮮度不足');
-    return reasons;
+    const k = item?.keepa;
+    const issues = [];
+    if (!timestampFresh(item?.keepaFetchedAt, now)) issues.push('Keepa取得から6時間超過');
+    if (!timestampFresh(k?.productUpdatedAt, now)) issues.push('Keepa商品データが古い');
+    if (num(k?.newOfferCount) !== null && !timestampFresh(k?.offersUpdatedAt, now)) issues.push('出品者データが古い');
+    return issues;
   }
-
-  function demandEvidence(keepa, now = Date.now()) {
-    const sold = number(keepa?.monthlySold);
-    if (sold !== null && sold >= 0 && timestampFresh(keepa?.monthlySoldUpdatedAt, now)) {
-      return { source: 'monthlySold', value: sold, level: sold >= 100 ? 3 : sold >= 30 ? 2 : sold >= 10 ? 1 : 0 };
+  function dataIssues(item, now = Date.now()) {
+    const k = item?.keepa;
+    const issues = [];
+    if (!k?.asin) issues.push('ASIN未確認');
+    if (item?.unitRisk) issues.push('商品内容・入数が一致しない可能性');
+    if (num(k?.newPrice) === null) issues.push('現在新品価格なし');
+    if (num(k?.avg90New) === null) issues.push('90日平均価格なし');
+    if (num(k?.fbaFee) === null) issues.push('FBA手数料未確認');
+    if (num(k?.referralFeePercent) === null) issues.push('販売手数料率未確認');
+    if (num(k?.variableClosingFee) === null) issues.push('カテゴリー成約料未確認');
+    if (num(k?.newOfferCount) === null) issues.push('新品出品者数未確認');
+    if (demandLevel(k) === null) issues.push('回転データ不足');
+    issues.push(...freshnessIssues(item, now));
+    return [...new Set(issues)];
+  }
+  function commercialIssues(item) {
+    const k = item?.keepa || {};
+    const issues = [];
+    const offers = num(k.newOfferCount), demand = demandLevel(k), current = num(k.newPrice), avg = num(k.avg90New);
+    if (k.amazonPresent === true) issues.push('Amazon本体が販売中');
+    if (offers !== null && offers > CONFIG.maxOffers) issues.push(`新品出品者${CONFIG.maxOffers}人超`);
+    if (demand !== null && demand < CONFIG.minDemandLevel) issues.push('回転不足');
+    if (current !== null && avg !== null && avg > 0) {
+      const ratio = current / avg;
+      if (ratio < CONFIG.minPriceTo90d || ratio > CONFIG.maxPriceTo90d) issues.push('現在価格が90日平均から外れています');
     }
-    const drops = number(keepa?.salesRankDrops30);
-    if (drops !== null && drops >= 0) return { source: 'salesRankDrops30', value: drops, level: drops >= 30 ? 3 : drops >= 10 ? 2 : drops >= 3 ? 1 : 0 };
-    return { source: null, value: null, level: null };
+    return issues;
   }
-
-  function demandLevel(keepa, now = Date.now()) {
-    return demandEvidence(keepa, now).level;
+  function canonicalSafeGuide(item) {
+    const k = item?.keepa;
+    if (!k) return null;
+    const current = num(k.newPrice), avg = num(k.avg90New);
+    if (current === null || avg === null) return null;
+    const currentSafe = safeAt(k, current), ninetySafe = safeAt(k, avg);
+    if (currentSafe === null || ninetySafe === null) return null;
+    return { currentSafe, ninetySafe, safe: Math.min(currentSafe, ninetySafe) };
   }
-
-  function calculateDecision(item, costValue, overrides = {}) {
-    if (unitRisk(item)) return null;
-    const cost = positive(costValue);
-    const sale = positive(overrides.salePrice) || positive(item?.keepa?.newPrice) || positive(item?.keepa?.avg90New);
-    const fba = number(overrides.fbaFee ?? item?.keepa?.fbaFee);
-    const rate = positive(overrides.referralRate) || referralRate(item, sale);
-    const other = Math.max(0, number(overrides.otherCost) || 0);
-    const closing = closingFee(item?.keepa);
-    if (!cost || !sale || fba === null || fba < 0 || closing === null || closing < 0 || !rate) return null;
-    const fees = Math.round(sale * rate / 100) + fba + closing + other;
-    const profit = Math.round(sale - fees - cost);
-    return {
-      cost,
-      sale,
-      fees,
-      profit,
-      margin: Math.round(profit / sale * 10000) / 100,
-      roi: Math.round(profit / cost * 10000) / 100,
-    };
-  }
-
-  function gateReasons(item, decision, now = Date.now(), overrides = {}, costValue = null) {
-    const keepa = item?.keepa || {};
-    const reasons = [];
-    if (!keepa.asin) reasons.push('ASIN未確定');
-    if (unitRisk(item)) reasons.push('商品単位/ASIN要確認');
-    if (!positive(keepa.newPrice)) reasons.push('現在価格不足');
-    if (!positive(keepa.avg90New)) reasons.push('90日価格不足');
-    if (number(keepa.fbaFee) === null || number(keepa.fbaFee) < 0
-      || closingFee(keepa) === null
-      || !positive(keepa.referralFeePercentage)) reasons.push('実手数料不足');
-    if (keepa.amazonPresent) reasons.push('Amazon本体在庫あり');
-    const offers = number(keepa.newOfferCount);
-    if (offers === null) reasons.push('出品者数不明');
-    else {
-      if (offers > CONFIG.maxOffers) reasons.push('出品者過多');
+  function evaluate(item, cost, now = Date.now()) {
+    const missing = dataIssues(item, now);
+    const commercial = commercialIssues(item);
+    const guide = canonicalSafeGuide(item);
+    const c = num(cost);
+    if (missing.length) return { signal: '🔴', label: '判定不能', reasons: missing, guide, decision: null };
+    if (commercial.length) return { signal: '🔴', label: '見送り', reasons: commercial, guide, decision: c ? profitAt(item.keepa, item.keepa.newPrice, c) : null };
+    if (c === null || c <= 0) return { signal: '🔴', label: '仕入れ価格を入力', reasons: ['仕入れ価格未入力'], guide, decision: null };
+    const d = profitAt(item.keepa, item.keepa.newPrice, c);
+    const d90 = profitAt(item.keepa, item.keepa.avg90New, c);
+    const profitIssues = [];
+    for (const [label, x] of [['現在価格', d], ['90日平均', d90]]) {
+      if (!x || x.profit < CONFIG.minProfit) profitIssues.push(`${label}の利益${CONFIG.minProfit}円未満`);
+      if (!x || x.margin < CONFIG.minMargin) profitIssues.push(`${label}の利益率${CONFIG.minMargin}%未満`);
+      if (!x || x.roi < CONFIG.minRoi) profitIssues.push(`${label}のROI${CONFIG.minRoi}%未満`);
     }
-    const demand = demandEvidence(keepa, now);
-    if (demand.level === null) reasons.push('回転データ不足');
-    else if (demand.level < CONFIG.minDemandLevel) reasons.push('回転不足');
-    const current = positive(keepa.newPrice);
-    const average = positive(keepa.avg90New);
-    if (current && average) {
-      const ratio = current / average;
-      if (ratio < CONFIG.minPriceTo90d || ratio > CONFIG.maxPriceTo90d) reasons.push('価格安定条件外');
-    }
-    reasons.push(...freshnessIssues(item, now));
-    const safeGuide = canonicalSafeGuide(item, overrides);
-    if (!safeGuide) reasons.push('利益条件上限算出不可');
-    if (!decision) {
-      if (!positive(costValue)) reasons.push('仕入れ価格未入力');
-    }
-    else {
-      if (safeGuide && decision.cost > safeGuide.safe) reasons.push('利益条件上限超過');
-      if (decision.profit < CONFIG.minProfit) reasons.push('利益不足');
-      if (decision.margin < CONFIG.minMargin) reasons.push('利益率不足');
-      if (decision.roi < CONFIG.minRoi) reasons.push('ROI不足');
-    }
-    return [...new Set(reasons)];
+    if (guide && c > guide.safe) profitIssues.push('利益条件上の仕入上限を超えています');
+    if (profitIssues.length) return { signal: '🔴', label: '見送り', reasons: [...new Set(profitIssues)], guide, decision: d };
+    return { signal: '🟢', label: 'GO（仕入れ）', reasons: [], guide, decision: d };
   }
-
-  function evaluate(item, costValue, overrides = {}) {
-    const decision = calculateDecision(item, costValue, overrides);
-    const reasons = gateReasons(item, decision, overrides.now || Date.now(), overrides, costValue);
-    const green = reasons.length === 0;
-    const measuredRejectReasons = new Set([
-      'Amazon本体在庫あり', '出品者過多', '回転不足', '価格安定条件外',
-      '利益条件上限超過', '利益不足', '利益率不足', 'ROI不足',
-    ]);
-    const measuredReject = reasons.some((reason) => measuredRejectReasons.has(reason));
-    return {
-      signal: green ? '🟢' : '🔴',
-      label: green ? 'GO（仕入れ）' : measuredReject ? '見送り' : '判定不能',
-      reasons,
-      decision,
-      guide: canonicalSafeGuide(item, overrides),
-    };
-  }
-
-  return { CONFIG, packCount, unitRisk, referralRate, closingFee, safeLimitAtSale, canonicalSafeGuide, demandEvidence, demandLevel, freshnessIssues, calculateDecision, gateReasons, evaluate };
+  return { CONFIG, feeTotal, profitAt, safeAt, demandLevel, timestampFresh, freshnessIssues, dataIssues, commercialIssues, canonicalSafeGuide, evaluate };
 });
