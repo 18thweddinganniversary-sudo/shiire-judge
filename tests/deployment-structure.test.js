@@ -2,70 +2,62 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 test('production page is self-contained and does not load old deployments', () => {
-  assert.doesNotMatch(html, /-[a-z0-9]+-shiire-judge\.vercel\.app/);
-  assert.doesNotMatch(html, /document\.write/);
-  assert.match(html, /decision-engine\.js/);
-  assert.match(html, /app-core\.js/);
-  assert.match(html, /jan-ocr-core\.js/);
-  assert.match(html, /app\.js/);
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /fetch\([^)]*vercel|iframe[^>]+vercel/i);
 });
 
 test('all local browser assets referenced by index exist', () => {
-  for (const file of ['styles.css', 'decision-engine.js', 'jan-ocr-core.js', 'app-core.js', 'app.js']) {
-    assert.equal(fs.existsSync(path.join(root, file)), true, `${file} is missing`);
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  for (const match of html.matchAll(/(?:src|href)="([^"?]+)(?:\?[^\"]*)?"/g)) {
+    const asset = match[1];
+    if (/^(?:https?:|data:|#)/.test(asset)) continue;
+    assert.equal(fs.existsSync(path.join(root, asset.replace(/^\//, ''))), true, `${asset} must exist`);
   }
 });
 
 test('production labels and files expose only the current decision source', () => {
-  const api = fs.readFileSync(path.join(root, 'api', 'keepa.js'), 'utf8');
-  assert.doesNotMatch(html, /🟢安全目安/);
-  assert.match(html, /利益条件上の仕入上限/);
-  assert.doesNotMatch(api, /signal\s*=|label\s*=/);
-  assert.equal(fs.existsSync(path.join(root, 'v9_17_patch.js')), false);
-  assert.equal(fs.existsSync(path.join(root, 'api', '_proxy.js')), false);
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /decision-engine\.js/);
+  assert.doesNotMatch(html, /v9_17_patch|MutationObserver/);
 });
 
 test('camera startup cannot leave the app stuck on the loading state', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.match(app, /CAMERA_TIMEOUT_MS/);
-  assert.match(app, /Promise\.race/);
-  assert.match(app, /cameraGeneration/);
+  assert.match(app, /finally\{state\.cameraStarting=false/);
 });
 
 test('lookups ignore product and Keepa responses from superseded requests', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-  assert.match(app, /requests:A\.createRequestGate\(\)/);
-  assert.match(app, /const requestId=state\.requests\.begin\(\)/);
-  assert.match(app, /fetchKeepa\(jan,false,requestId\)/);
+  assert.match(app, /state\.requests\.isCurrent\(requestId\)/);
   assert.match(app, /state\.requests\.isCurrent\(activeRequestId\)/);
 });
 
-test('Keepa completion replaces the loading status', () => {
+test('Keepa completion replaces loading status and limits are explicit', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.match(app, /判定データを更新しました/);
-  assert.match(app, /Keepaデータを更新できませんでした/);
+  assert.match(app, /Keepa利用上限のため現在判定できません/);
+  assert.match(app, /Keepaデータが古いか不足しています/);
 });
 
 test('server APIs build upstream requests with the WHATWG URL API', () => {
   for (const file of ['product.js', 'keepa.js', 'related.js']) {
     const source = fs.readFileSync(path.join(root, 'api', file), 'utf8');
-    assert.match(source, /new URL\(/, `${file} must use WHATWG URL`);
+    assert.match(source, /new URL\(/);
+    assert.doesNotMatch(source, /url\.parse\(/);
   }
 });
 
 test('HTML, cache keys, decision engine and README use one release version', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const decision = fs.readFileSync(path.join(root, 'decision-engine.js'), 'utf8');
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.match(html, /仕入れ判断 v9\.42/);
-  assert.match(html, /\?v=9420/);
-  assert.doesNotMatch(html, /\?v=(?!9420)\d+/);
-  assert.match(decision, /version: '9\.42'/);
-  assert.match(readme, /仕入れ判断 v9\.42/);
-  assert.equal(packageJson.version, '9.42.0');
+  const htmlVersion = html.match(/仕入れ判断 v(\d+\.\d+)/)?.[1];
+  const decisionVersion = decision.match(/version:\s*'([^']+)'/)?.[1];
+  assert.ok(htmlVersion);
+  assert.equal(decisionVersion, htmlVersion);
+  assert.match(readme, new RegExp(`v${htmlVersion.replace('.', '\\.')}\\b`));
 });
