@@ -6,6 +6,7 @@ on:
     branches: [main]
 permissions:
   contents: read
+  statuses: write
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
@@ -15,4 +16,12 @@ jobs:
         with:
           node-version: 22
       - name: Verify canonical context and application
+        id: verify
         run: npm run verify
+      - name: Notify Vercel
+        if: always()
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: 'Vercel - shiire_judge_v5_vercel-1: quality-gate'
+          state: ${{ steps.verify.outcome == 'success' && 'success' || 'error' }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
