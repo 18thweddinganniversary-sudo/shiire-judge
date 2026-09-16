@@ -1,6 +1,6 @@
 # PROJECT STATUS
 
-Updated: 2026-09-16
+Updated: 2026-09-17
 
 ## Current phase
 **v9.44 Keepa token-economy repair is complete in Production. せどりGO統合版は隔離Previewで候補探索→上位5件詳細化→店頭最終判定への接続まで実装済み。**
@@ -41,6 +41,7 @@ Implemented:
 - `sedori-go-core.js`: 店頭で使える候補だけshortlist化し、6時間cacheを判定。
 - `sedori-go.js` + `sedori-go.css`: 同じアプリ画面に「せどりGO 候補探索」を統合。候補カードの「店頭で確認」で既存JAN最終判定へ接続。
 - UI文言は「仕入れ候補」「店頭で確認」とし、候補を自動的な買い指示にしない。
+- iPhone実機で、上部を `カメラ → JAN操作 → せどりGO候補探索` とする配置を確認済み。
 
 ## Real Keepa acceptance evidence
 Preview `KEEPA_API_KEY` はProduction + Previewで設定済み。
@@ -67,12 +68,13 @@ TDDの各production changeは先に失敗するテストを確認してから実
 - top-5 detail enrichment: RED run 146 → GREEN run 149/152。
 - shortlist core: RED run 155 → GREEN run 158。
 - integrated UI wiring: RED run 161 → GREEN run 172。
-- Latest Preview deployment `dpl_4NEJo6huaX22C7F8KA4WnKoHk25L` READY; `/` and `sedori-go.js` served successfully without triggering another Keepa lookup.
+- Preview layout acceptance: iPhone実機でカメラ最上部配置を確認済み。
+- Preview runtime blocker `YAHOO_APP_ID_missing` はコード不具合ではなく環境設定と特定。ユーザー操作で `YAHOO_APP_ID` をProduction + Previewに有効化済み。新Deploymentで反映確認する。
 
 ## Next acceptance
-- iPhone実機でPreviewの統合画面レイアウトを1回確認。
+- 新Preview deploymentで `YAHOO_APP_ID_missing` が解消し、既存JAN商品取得が200になることを確認する。
 - 候補探索ボタンはKeepa消費を伴うため、既存API受入証拠を再利用し、無意味な連打テストは禁止。
-- UI確認後、必要な最小修正だけ行い、PR #12をmainへ統合する。
+- Preview runtime確認後、必要な最小修正だけ行い、PR #12をmainへ統合する。
 - 次段階で買付け結果記録を追加する。
 
 ## Amazon sellability decision
