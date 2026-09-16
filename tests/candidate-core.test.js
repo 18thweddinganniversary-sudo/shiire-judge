@@ -28,6 +28,16 @@ test('phase 2 prefilters mirror the existing decision gates before product detai
   assert.equal(selection.deltaPercent90_NEW_lte, 25);
 });
 
+test('phase 2 candidate prefilter requires fee data and six-hour-fresh product/offer updates', () => {
+  const nowMs = Date.UTC(2026, 8, 16, 8, 0, 0);
+  const selection = Candidate.buildFinderSelection(Candidate.normalizeCandidateQuery({ nowMs }));
+  const expectedFreshAfter = Math.floor(nowMs / 60000) - 21564000 - 360;
+
+  assert.equal(selection.fbaFees_gte, 1);
+  assert.equal(selection.lastUpdate_gte, expectedFreshAfter);
+  assert.equal(selection.lastOffersUpdate_gte, expectedFreshAfter);
+});
+
 test('candidate query never allows more than 50 results or nonzero pages', () => {
   const options = Candidate.normalizeCandidateQuery({ perPage: 500, page: 8 });
   const selection = Candidate.buildFinderSelection(options);
