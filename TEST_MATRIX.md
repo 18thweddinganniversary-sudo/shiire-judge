@@ -1,4 +1,4 @@
-# 仕入れ判断 検証表
+# 仕入れ判断 / せどりGO 検証表
 
 ## Core regression checks
 1. コーラ: 手数料不足 → 🔴見送り（黄色なし）
@@ -33,29 +33,51 @@
 - 実データ: Amazon本体なし、出品者3、Rank下降10回/30日、現在価格23,800円、90日平均23,992円、FBA手数料425円（税込）、紹介料10.4%、商品・オファー鮮度OK
 - 境界確認: 仕入16,140円で `GO（仕入れ）`（利益4,760円、利益率20.0%、ROI 29.49%）。16,141円では `利益条件上限超過` で見送り
 
-## v9.43 Keepa cache / dedupe acceptance
+## v9.43 / v9.44 accepted
 - 正常取得したKeepaデータは6時間以内なら保存値を再利用。
 - 同一JAN in-flight requestを重複させない。
 - 詳細表示だけではKeepaを再取得しない。
-- 通常UIから `offers=20` を使用しない。
-- release candidate automated suite: 79/79 passed.
+- 通常 `/api/keepa` は `update=1` / `offers=20` を送らない。
+- 明示的 `Keepa再取得` だけ `refresh=1`。
+- Production real JAN `4549980616994`: normal request `tokensConsumed=1`。
+- 実機5商品テスト: 5商品にKeepa lookup 5回のみ。
+- 実機: 正当な🟢成立、一覧/詳細一致、仕入上限1円境界、同JAN再検索はKeepa 0追加通信。
 
-## v9.44 token-efficiency acceptance（2026-09-16）
-- 通常 `/api/keepa` は `update=1` を送らない。
-- 通常 `/api/keepa` は `offers=20` を送らない。
-- 明示的 `Keepa再取得` だけ `refresh=1` を送り、serverが `update=1` を付与する。
-- 明示的な通常再取得でも marketplace offer pages は要求しない。
-- regression TDD: 変更前に新テストのfailureを確認し、実装修正後のquality-gate成功を確認。
-- Production commit: `a966481c90fd0e5c22ed97deb6305272c2e74b6a`
-- Production deployment: `dpl_3ARffFXgsUSb8gL9PSBgdgTX7nNA` READY.
-- 実Keepa確認: JAN `4549980616994` → HTTP 200 / `mode=basic` / `tokensConsumed=1` / `tokensLeft=59`.
-- 実機5商品テスト: 対象期間のKeepa lookupは5回、`/api/keepa` も5回。余計なKeepa重複通信なし。
+## せどりGO candidate discovery / enrichment acceptance
+- Product Finderは1明示操作につき1 requestのみ。page 0 / perPage max 50 / no auto paging / no `stats=1`。
+- Previewの`KEEPA_API_KEY`はProduction + Previewに設定済み。
+- Finder prefilters: Amazon本体なし、月販30以上、新品1,500円以上、90日平均あり、出品者1〜15、90日価格差 -15%〜+25%、FBA feeあり、商品/offer更新6時間以内、sales rank 1〜50,000。
+- Controlled real probes: 262,800 → 105,700 → 76,700 → 76,500 results。各Finder requestは11 token。
+- これ以上Finder条件を試行錯誤して母数だけ削るのはtoken効率が悪いため停止。二段階方式へ移行。
+- `api/candidate-details.js` はFinder上位5 ASINだけを1 batch Product Requestで詳細化する。
+- detail requestは `history=0`, `stats=90`, no `update`, no `offers`。
+- 5件超のASIN batchはKeepa通信前に400で拒否。
+- Controlled real detail probe: 5 candidates / `tokensConsumed=5`。
+- 実結果: 5件中4件に13桁JAN、3件は利益条件上限まで算出。JANなし / 上限算出不可はshortlistから除外。
+- shortlistは「仕入れ候補」「店頭で確認」と表示し、自動的な買い指示にしない。
+- candidate shortlist cacheは6時間以内だけ再利用する。
 
-## Manual store-use acceptance — next
-- 連続スキャンが店舗動線で止まらない。
-- 一覧→詳細→戻るが自然に動く。
-- 仕入価格入力と判定結果が一覧/詳細で矛盾しない。
-- 同棚候補が別商品種/容量/入数を混入させない。
-- 再読込後も履歴・価格・Keepa取得時刻が保持される。
-- `Keepa再取得` はユーザーが明示したときだけ追加消費する。
-- 最終的なAmazonアカウント固有の出品可否は、候補商品だけSeller Central / FBAで確認する。
+## せどりGO integrated UI acceptance
+- 既存の仕入れ判断画面と別アプリにせず、同一画面に `せどりGO 候補探索` を追加。
+- `候補を探す` はFinder→上位5詳細化→店頭利用可能shortlist化を1操作で行う。
+- 候補カードはJAN / Amazon新品 / 90日平均 / 回転 / 出品者 / 仕入れ上限目安を表示。
+- `店頭で確認` は既存JAN入力/検索へ渡し、従来の最終判定ロジックを再利用。
+- 画面に「候補は仕入れ指示ではない」「現物と店頭価格を確認して最終判断」を明記。
+- TDD RED/GREEN: UI wiring run 161 failure → run 172 success。
+- Latest Preview `dpl_4NEJo6huaX22C7F8KA4WnKoHk25L` READY。
+- Preview `/` と `/sedori-go.js` はHTTP 200で配信確認済み。静的確認ではKeepa追加消費なし。
+
+## TDD evidence for Phase 2
+- Finder price/competition/stability: RED run 128 → GREEN run 131。
+- freshness/fee: RED run 134 → GREEN run 137。
+- rank band: RED run 140 → GREEN run 143。
+- top-5 detail enrichment: RED run 146 → GREEN run 149 / syntax run 152。
+- shortlist core: RED run 155 → GREEN run 158。
+- integrated UI: RED run 161 → GREEN run 172。
+
+## Manual acceptance — next
+- iPhone Previewで「せどりGO 候補探索」セクションの表示崩れがない。
+- 候補カード→`店頭で確認`→既存JAN判定への動線が自然。
+- Keepaを消費する候補探索は既存real API evidenceを再利用し、無意味な連打テストをしない。
+- UIの実機確認後、必要な最小修正のみ行ってPR #12をmainへ統合する。
+- 最終的なAmazonアカウント固有の出品可否は、絞り込んだ候補だけSeller Central / FBAで確認する。

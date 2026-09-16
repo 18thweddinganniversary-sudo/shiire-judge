@@ -24,6 +24,25 @@ test('production labels and files expose only the current decision source', () =
   assert.doesNotMatch(html, /v9_17_patch|MutationObserver/);
 });
 
+test('sedori GO candidate discovery is wired into the same store-judgement page', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /sedori-go-core\.js/);
+  assert.match(html, /sedori-go\.js/);
+  assert.match(html, /id="candidateSearchButton"/);
+  assert.match(html, /id="candidateList"/);
+  assert.match(html, /候補を探す/);
+});
+
+test('camera and JAN controls stay above sedori GO candidate discovery', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const camera = html.indexOf('class="camera-card"');
+  const controls = html.indexOf('class="controls"');
+  const candidates = html.indexOf('class="candidate-section"');
+  assert.ok(camera >= 0 && controls >= 0 && candidates >= 0);
+  assert.ok(camera < controls, 'camera must remain above JAN controls');
+  assert.ok(controls < candidates, 'sedori GO candidate discovery must be below the camera and JAN controls');
+});
+
 test('camera startup cannot leave the app stuck on the loading state', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.match(app, /CAMERA_TIMEOUT_MS/);
