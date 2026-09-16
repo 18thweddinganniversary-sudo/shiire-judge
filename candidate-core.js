@@ -18,6 +18,8 @@
     minPriceTo90dPercent: -15,
     maxPriceTo90dPercent: 25,
     minFbaFee: 1,
+    minSalesRank: 1,
+    maxSalesRank: 50000,
     productType: 0,
     availabilityAmazon: Object.freeze([-1]),
   });
@@ -62,6 +64,8 @@
       deltaPercent90_NEW_gte: FINDER_CONFIG.minPriceTo90dPercent,
       deltaPercent90_NEW_lte: FINDER_CONFIG.maxPriceTo90dPercent,
       fbaFees_gte: FINDER_CONFIG.minFbaFee,
+      current_SALES_gte: FINDER_CONFIG.minSalesRank,
+      current_SALES_lte: FINDER_CONFIG.maxSalesRank,
       lastUpdate_gte: freshAfter,
       lastOffersUpdate_gte: freshAfter,
       sort: [['monthlySold', 'desc']],
