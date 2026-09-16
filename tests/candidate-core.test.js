@@ -38,6 +38,12 @@ test('phase 2 candidate prefilter requires fee data and six-hour-fresh product/o
   assert.equal(selection.lastOffersUpdate_gte, expectedFreshAfter);
 });
 
+test('discovery profile keeps candidates inside the established rank 50000 research band', () => {
+  const selection = Candidate.buildFinderSelection(Candidate.normalizeCandidateQuery({}));
+  assert.equal(selection.current_SALES_gte, 1);
+  assert.equal(selection.current_SALES_lte, 50000);
+});
+
 test('candidate query never allows more than 50 results or nonzero pages', () => {
   const options = Candidate.normalizeCandidateQuery({ perPage: 500, page: 8 });
   const selection = Candidate.buildFinderSelection(options);
