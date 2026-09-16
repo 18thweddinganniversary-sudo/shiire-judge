@@ -51,6 +51,23 @@
 - 実Keepa確認: JAN `4549980616994` → HTTP 200 / `mode=basic` / `tokensConsumed=1` / `tokensLeft=59`.
 - 実機5商品テスト: 対象期間のKeepa lookupは5回、`/api/keepa` も5回。余計なKeepa重複通信なし。
 
+## せどりGO Phase 1 candidate discovery acceptance
+- Keepa Product Finder `/query` をAmazon.co.jp `domain=5` で使用する。
+- 1回の明示操作につきProduct Finderは1リクエストだけ。自動ページング禁止。
+- `perPage` は50固定上限、`page` は0固定。
+- `stats=1` は使用しない。
+- Amazon本体なし（`availabilityAmazon:[-1]`）かつ `monthlySold_gte:30` を初期一次絞り込みとする。
+- Product Finderの実トークン消費 `tokensConsumed` をレスポンスで可視化する。
+- 429は `token_limit` として扱い、候補0件と混同しない。
+- APIキーはレスポンスへ出さない。
+- malformed upstream responseを「候補0件」の正常成功にしない。
+- TDD RED: candidate-core不存在でquality-gate failureを確認。
+- TDD GREEN: candidate-core実装後quality-gate successを確認。
+- TDD RED: candidate endpoint不存在でquality-gate failureを確認。
+- TDD GREEN: endpoint実装後quality-gate success（run 115）を確認。
+- Preview deployment `dpl_6susttzoDhrJnyzuiykGCHLpS9EY` はREADY。
+- Preview実API probeは `KEEPA_API_KEY_missing` で停止。Preview環境にKeepaキーが設定されていないため、実トークン/候補数の受入確認は未完了。Productionへ未検証コードを先に出さない。
+
 ## Manual store-use acceptance — next
 - 連続スキャンが店舗動線で止まらない。
 - 一覧→詳細→戻るが自然に動く。
