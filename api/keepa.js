@@ -6,6 +6,7 @@ module.exports = async (req, res) => {
   try {
     const jan = String(req.query.jan || '').replace(/\D/g, '');
     const mode = req.query.mode === 'offers' ? 'offers' : 'basic';
+    const refresh = req.query.refresh === '1';
     if (!validJan(jan)) return res.status(400).json({ error: 'JANコードが不正です' });
     const key = process.env.KEEPA_API_KEY;
     if (!key) return res.status(500).json({ configured: false, error: 'KEEPA_API_KEY_missing' });
@@ -16,9 +17,12 @@ module.exports = async (req, res) => {
     url.searchParams.set('code', jan);
     url.searchParams.set('history', '0');
     url.searchParams.set('stats', '90');
-    url.searchParams.set('update', '1');
-    // Marketplace offer pages cost +6 tokens per found page. Normal scanning must
-    // stay on the one-product request; only an explicit user refresh asks for them.
+    // Normal scans use Keepa's cached product data to avoid forced-update token cost.
+    // Only an explicit user refresh (or the separate high-cost offers mode) may ask
+    // Keepa to update the product first.
+    if (refresh || mode === 'offers') url.searchParams.set('update', '1');
+    // Marketplace offer pages cost +6 tokens per found page. Normal scanning and
+    // the regular manual refresh stay on the one-product request.
     if (mode === 'offers') url.searchParams.set('offers', '20');
 
     const r = await fetch(url, { headers: { 'Accept-Encoding': 'gzip' }, cache: 'no-store', signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
