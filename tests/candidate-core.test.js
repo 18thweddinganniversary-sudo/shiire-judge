@@ -17,6 +17,17 @@ test('default candidate query is conservative and bounded', () => {
   assert.equal(Object.hasOwn(selection, 'stats'), false);
 });
 
+test('phase 2 prefilters mirror the existing decision gates before product detail calls', () => {
+  const selection = Candidate.buildFinderSelection(Candidate.normalizeCandidateQuery({}));
+
+  assert.equal(selection.current_NEW_gte, 1500);
+  assert.equal(selection.avg90_NEW_gte, 1);
+  assert.equal(selection.current_COUNT_NEW_gte, 1);
+  assert.equal(selection.current_COUNT_NEW_lte, 15);
+  assert.equal(selection.deltaPercent90_NEW_gte, -15);
+  assert.equal(selection.deltaPercent90_NEW_lte, 25);
+});
+
 test('candidate query never allows more than 50 results or nonzero pages', () => {
   const options = Candidate.normalizeCandidateQuery({ perPage: 500, page: 8 });
   const selection = Candidate.buildFinderSelection(options);
