@@ -43,6 +43,12 @@ test('Keepa completion replaces loading status and limits are explicit', () => {
   assert.match(app, /Keepaデータが古いか不足しています/);
 });
 
+test('manual Keepa refresh asks for an upstream update without offer pages', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.match(app, /refresh=1/);
+  assert.doesNotMatch(app, /refreshButton[^\n]*mode=offers/);
+});
+
 test('server APIs build upstream requests with the WHATWG URL API', () => {
   for (const file of ['product.js', 'keepa.js', 'related.js']) {
     const source = fs.readFileSync(path.join(root, 'api', file), 'utf8');
