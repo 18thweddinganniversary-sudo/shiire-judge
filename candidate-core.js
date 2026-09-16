@@ -9,6 +9,11 @@
     page: 0,
     perPage: 50,
     minMonthlySold: 30,
+    minNewPrice: 1500,
+    minNewOfferCount: 1,
+    maxNewOfferCount: 15,
+    minPriceTo90dPercent: -15,
+    maxPriceTo90dPercent: 25,
     productType: 0,
     availabilityAmazon: Object.freeze([-1]),
   });
@@ -35,6 +40,12 @@
       productType: FINDER_CONFIG.productType,
       availabilityAmazon: [...FINDER_CONFIG.availabilityAmazon],
       monthlySold_gte: FINDER_CONFIG.minMonthlySold,
+      current_NEW_gte: FINDER_CONFIG.minNewPrice,
+      avg90_NEW_gte: 1,
+      current_COUNT_NEW_gte: FINDER_CONFIG.minNewOfferCount,
+      current_COUNT_NEW_lte: FINDER_CONFIG.maxNewOfferCount,
+      deltaPercent90_NEW_gte: FINDER_CONFIG.minPriceTo90dPercent,
+      deltaPercent90_NEW_lte: FINDER_CONFIG.maxPriceTo90dPercent,
       sort: [['monthlySold', 'desc']],
     };
     if (normalized.rootCategory) selection.rootCategory = [normalized.rootCategory];
