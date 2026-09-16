@@ -31,7 +31,7 @@ function keepaPayload() {
   };
 }
 
-test('normal Keepa lookup is low-cost: no marketplace offer pages', async () => {
+test('normal Keepa lookup is low-cost: no forced update or marketplace offer pages', async () => {
   const originalFetch = global.fetch;
   const originalKey = process.env.KEEPA_API_KEY;
   process.env.KEEPA_API_KEY = 'test-key';
@@ -42,13 +42,28 @@ test('normal Keepa lookup is low-cost: no marketplace offer pages', async () => 
   finally { global.fetch = originalFetch; if (originalKey === undefined) delete process.env.KEEPA_API_KEY; else process.env.KEEPA_API_KEY = originalKey; }
   const url = new URL(requestedUrl);
   assert.equal(out.statusCode, 200);
-  assert.equal(url.searchParams.get('update'), '1');
+  assert.equal(url.searchParams.has('update'), false);
   assert.equal(url.searchParams.has('offers'), false);
   assert.equal(out.body.tokensConsumed, 1);
   assert.equal(out.body.product.salesRankDrops30, 12);
   assert.equal(out.body.product.fbaFee, 900);
   assert.equal(out.body.product.fbaFeeStatus, 'available_tax_inclusive');
   assert.equal('signal' in out.body.product, false);
+});
+
+test('explicit Keepa refresh requests update without marketplace offer pages', async () => {
+  const originalFetch = global.fetch;
+  const originalKey = process.env.KEEPA_API_KEY;
+  process.env.KEEPA_API_KEY = 'test-key';
+  let requestedUrl = '';
+  global.fetch = async (url) => { requestedUrl = String(url); return { ok: true, json: async () => keepaPayload() }; };
+  const out = responseCapture();
+  try { await handler({ query: { jan: '4902370542912', refresh: '1' } }, out.res); }
+  finally { global.fetch = originalFetch; if (originalKey === undefined) delete process.env.KEEPA_API_KEY; else process.env.KEEPA_API_KEY = originalKey; }
+  const url = new URL(requestedUrl);
+  assert.equal(out.statusCode, 200);
+  assert.equal(url.searchParams.get('update'), '1');
+  assert.equal(url.searchParams.has('offers'), false);
 });
 
 test('explicit offer refresh may request live offer pages', async () => {
