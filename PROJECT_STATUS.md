@@ -3,14 +3,16 @@
 Updated: 2026-09-17
 
 ## Current phase
-**v9.44 Keepa token-economy repair is complete in Production. せどりGO統合版は隔離Previewで候補探索→上位5件詳細化→店頭最終判定への接続まで実装済み。**
+**v9.44 Keepa token-economy repairと、せどりGOの候補探索→上位5件詳細化→既存店頭最終判定への統合がProductionで完了。買付け結果記録はPR #13のPreviewで実装・自動検証済み。**
 
 ## Production baseline
 - Visible app version remains v9.43 (`Keepa効率改善版`); v9.44 is an internal behavior revision and did not change the visible version label.
-- Current main / production commit: `251ae56791c0eb7d8934ce70e14b95116f5e3db7`.
-- Current production deployment: `dpl_9j4z2GCAamTs68XVMDCg2RK6Wync`, READY and assigned to production.
+- Current main release commit: `15acb6582c15251e7c2e8f2e939e52786a7f9498`.
+- せどりGO production deployment: `dpl_BVrM6zNFfberNFExXe98N8PchfCP`, READY and assigned to `shiirejudgev5vercel-1.vercel.app`.
+- Production root HTTP 200 and includes camera-first `カメラ → JAN操作 → せどりGO候補探索` layout.
+- Production `/api/product?jan=4901777300545` returned HTTP 200 with a real Yahoo product match after release.
 - Normal scan remains list-first; detail does not auto-open.
-- Production behavior already accepted: 正当な🟢成立、一覧/詳細一致、仕入れ上限1円境界、同JAN 6時間キャッシュでKeepa再通信なし。
+- Existing accepted behavior remains: 正当な🟢成立、一覧/詳細一致、仕入れ上限1円境界、同JAN 6時間キャッシュでKeepa再通信なし。
 
 ## v9.44 completed
 - Normal `/api/keepa` request uses the low-cost basic path and no longer sends `update=1` or `offers=20`.
@@ -27,55 +29,54 @@ Updated: 2026-09-17
 - 最上位原則はサポート優先。候補表示は仕入れ指示ではなく、最終判断はユーザーに委ねる。
 - AIループ防止ルールを `PROJECT_RULES.md` と設計書へ追加済み。
 
-## せどりGO Preview implementation
-Branch: `design/sedori-go`
-PR: #12 (draft)
-
-Implemented:
-- `candidate-core.js`: Keepa Product Finder一次絞り込み。
-- `api/candidates.js`: 1回の明示操作につき1 Finder request、page 0 / max 50、no auto paging、no `stats=1`。
-- Finder prefilters: Amazon本体なし、月販30以上、新品価格1,500円以上、90日平均あり、新品出品者1〜15、90日価格差 -15%〜+25%、FBA feeあり、商品/offer更新6時間以内、sales rank 1〜50,000。
-- `api/candidate-details.js`: Finder上位5 ASINだけを低コストProduct Requestで詳細化。`update`/`offers`なし。
-- 詳細化でJAN、商品名、価格、90日平均、回転、出品者、Amazon本体、FBA fee、紹介料、仕入れ上限目安を取得。
+## せどりGO Production implementation
+PR #12 merged to main with squash commit `15acb6582c15251e7c2e8f2e939e52786a7f9498`.
+- Bounded Keepa Product Finder一次絞り込み。
+- 1回の明示操作につき1 Finder request、page 0 / max 50、no auto paging、no `stats=1`。
+- Amazon本体なし、月販30以上、新品価格1,500円以上、90日平均あり、新品出品者1〜15、90日価格差 -15%〜+25%、FBA feeあり、商品/offer更新6時間以内、sales rank 1〜50,000でpre-filter。
+- Finder上位5 ASINだけ低コストProduct Requestで詳細化。`update`/`offers`なし。
 - JANなし / 利益上限算出不可は店頭候補リストから除外。
-- `sedori-go-core.js`: 店頭で使える候補だけshortlist化し、6時間cacheを判定。
-- `sedori-go.js` + `sedori-go.css`: 同じアプリ画面に「せどりGO 候補探索」を統合。候補カードの「店頭で確認」で既存JAN最終判定へ接続。
-- UI文言は「仕入れ候補」「店頭で確認」とし、候補を自動的な買い指示にしない。
-- iPhone実機で、上部を `カメラ → JAN操作 → せどりGO候補探索` とする配置を確認済み。
+- 6時間candidate cache。
+- 候補カードの「店頭で確認」で既存JAN最終判定へ接続。
+- iPhone実機でカメラ最上部配置を確認済み。
 
 ## Real Keepa acceptance evidence
-Preview `KEEPA_API_KEY` はProduction + Previewで設定済み。
+- Controlled Finder probe: `tokensConsumed=11`。
+- Controlled top-5 detail probe: `tokensConsumed=5`。
+- Finder母数を有料試行で何度も削る方式は採用せず、上位少数だけ詳細化する二段階方式を採用。
+- Preview `KEEPA_API_KEY` / `YAHOO_APP_ID` はProduction + Previewで設定済み。
 
-Controlled Product Finder probes:
-- 初期条件: `totalResults=262800`, `tokensConsumed=11`。
-- 価格/競争/価格安定pre-filter後: `105700`, 11 tokens。
-- fee/6h freshness追加後: `76700`, 11 tokens。
-- rank<=50000追加後: `76500`, 11 tokens。
+## 買付け結果記録 Preview
+Branch: `feature/sedori-go-purchase-record`
+PR: #13 (draft)
 
-Conclusion: Finder母数そのものをさらに何度も試行して削るのは、1回11 tokenのため非効率。ここからは上位少数だけ詳細化する二段階方式を採用する。
+Design:
+- アプリ判定 (`GO` / `見送り` / `判定不能`) とユーザーの実結果 (`bought` / `skipped`) を別フィールドで保存。
+- 最終判断はユーザー。アプリは自動購入判断をしない。
+- localStorageのみ。外部アカウント/クラウド同期は追加しない。
+- 保存項目: JAN、商品名、店頭価格、アプリ判定、ユーザー結果、日時。
+- `買った` は正の店頭価格必須。`見送った` は価格なしでも記録可。
+- 最大200件の直近履歴に制限し、破損JSONは空配列として安全に扱う。
 
-Controlled candidate detail probe（上位5 ASIN）:
-- `tokensConsumed=5`。
-- 5件中4件に13桁JAN、うち3件は仕入れ上限目安まで算出できた。
-- 例: VITAS JAN `4589463560215` 上限目安1,171円、medicube JAN `8809506809917` 1,170円、V CRYSTAL JAN `4595121110050` 1,520円。
-- JANなし / 利益上限算出不可はshortlistから除外する。
+Implemented:
+- `purchase-record-core.js`: 正規化・検証・安全な履歴操作。
+- `purchase-record-ui.js`: 詳細シートからユーザー結果をlocalStorageへ保存。
+- `purchase-record.css`: スマホ向け2ボタン。
+- 詳細シートの既存判定の下に「実際の買付け結果」「買った」「見送った」を追加。
 
-## Verification
-TDDの各production changeは先に失敗するテストを確認してから実装。
-- Finder prefilters: RED run 128 → GREEN run 131。
-- freshness/fee filters: RED run 134 → GREEN run 137。
-- sales-rank filter: RED run 140 → GREEN run 143。
-- top-5 detail enrichment: RED run 146 → GREEN run 149/152。
-- shortlist core: RED run 155 → GREEN run 158。
-- integrated UI wiring: RED run 161 → GREEN run 172。
-- Preview layout acceptance: iPhone実機でカメラ最上部配置を確認済み。
-- Preview runtime blocker `YAHOO_APP_ID_missing` はコード不具合ではなく環境設定と特定。ユーザー操作で `YAHOO_APP_ID` をProduction + Previewに有効化済み。新Deploymentで反映確認する。
+TDD / Preview evidence:
+- Record core contract: RED quality-gate run 197 → GREEN run 200。
+- UI contract: RED quality-gate run 203 → GREEN run 210。
+- Latest Preview deployment `dpl_7XRRQnSF9fjKuhqe1wejoWqx8Moy` READY。
+- Preview root HTTP 200で新module、買った/見送ったcontrolsを配信確認。
+- `purchase-record-ui.js` HTTP 200確認。
+- この機能はcandidate API/Keepa requestを変更しないため、有料Keepa再試験は実施しない。
 
 ## Next acceptance
-- 新Preview deploymentで `YAHOO_APP_ID_missing` が解消し、既存JAN商品取得が200になることを確認する。
-- 候補探索ボタンはKeepa消費を伴うため、既存API受入証拠を再利用し、無意味な連打テストは禁止。
-- Preview runtime確認後、必要な最小修正だけ行い、PR #12をmainへ統合する。
-- 次段階で買付け結果記録を追加する。
+- PR #13の最終quality-gateを確認してmainへ統合する。
+- Production反映後、root配信と新module配信を確認する。
+- 実機で買付け結果ボタンの操作感に問題が出た場合だけ最小修正する。
+- 次の大規模機能は追加せず、まず実店舗で候補探索→店頭判定→結果記録の一連運用を優先する。
 
 ## Amazon sellability decision
 - Gate 0 / SP-API account-specific sellability will not be implemented for now.
